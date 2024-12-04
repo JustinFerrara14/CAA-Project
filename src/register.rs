@@ -18,7 +18,7 @@ pub fn register(srv: &mut Server) -> Result<(), Box<dyn std::error::Error>> {
     let cpriv2 = "cpriv2".to_string();
     let pub2 = "pub2".to_string();
 
-    srv.db.register(username, salt, hash, cpriv1, pub1, cpriv2, pub2)?;
+    srv.register(username, salt, hash, cpriv1, pub1, cpriv2, pub2)?;
 
     Ok(())
 }

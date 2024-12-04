@@ -9,7 +9,7 @@ struct Message {
     message: String,
     signature: String,
 }
-struct User {
+pub struct User {
     username: String,
     salt: String,
     hash: String,
@@ -28,16 +28,7 @@ impl Database {
         Database { users: Vec::new() }
     }
 
-    pub fn register(
-        &mut self,
-        username: String,
-        salt: String,
-        hash: String,
-        cpriv1: String,
-        pub1: String,
-        cpriv2: String,
-        pub2: String,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn create_user(&mut self, username: String, salt: String, hash: String, cpriv1: String, pub1: String, cpriv2: String, pub2: String) -> Result<(), Box<dyn std::error::Error>> {
         self.users.push(User {
             username,
             salt,
@@ -55,4 +46,7 @@ impl Database {
         Ok(())
     }
 
+    pub fn get_user(&self, username: &str) -> Option<&User> {
+        self.users.iter().find(|u| u.username == username)
+    }
 }
