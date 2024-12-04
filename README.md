@@ -133,18 +133,18 @@ $$
 	- cpriv2
 
 
-## Envoi de message
+## Envoi de Message
 - Le client fait un login normal.
 - Le client possède donc (priv1, pub1, priv2, pub2, k, h).
-- Le client demande la clé publique du destinataire du message au serveur pub1Dest.
-- Le client utilise ECIES pour chiffrer le message en utilisant la clé publique du destinataire :
+- Le client demande la clé publique du destinataire du Message au serveur pub1Dest.
+- Le client utilise ECIES pour chiffrer le Message en utilisant la clé publique du destinataire :
 $$
 r = random
 $$
 $$
-R\ ||\ c\ ||\ T = ECIES(pub1Dest, message, r)
+R\ ||\ c\ ||\ T = ECIES(pub1Dest, Message, r)
 $$
-- Le client signe le message complet et la date autorisée d'ouverture du message avec priv2
+- Le client signe le Message complet et la date autorisée d'ouverture du Message avec priv2
 $$
 k = random
 $$
@@ -157,7 +157,7 @@ $$
 R\ ||\ c\ ||\ T\ ||\ date\ ||\ r\ ||\ s
 $$
 
-## Réception de message
+## Réception de Message
 - Le client fait un login normal.
 - Le client possède donc (priv1, pub1, priv2, pub2, k, h).
 - Le client reçoit du serveur :
@@ -168,8 +168,8 @@ $$
 $$
 R\ ||\ c\ ||\ T\ ||\ date\ ||\ r\ ||\ s
 $$
-- Le client vérifie que la signature du message est correcte
-- Le client déchiffre le message m :
+- Le client vérifie que la signature du Message est correcte
+- Le client déchiffre le Message m :
 $$
 m = ECIES(priv1, R||c||T)
 $$
