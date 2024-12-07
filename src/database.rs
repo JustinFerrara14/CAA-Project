@@ -1,3 +1,4 @@
+use std::time::SystemTime;
 use aes_gcm::aead::consts::U12;
 use aes_gcm::aes::Aes256;
 use aes_gcm::{aead, AesGcm, Nonce};
@@ -10,9 +11,9 @@ pub struct AsysmKey {
     pub(crate) nonce: GenericArray<u8, U12>,
 }
 pub struct Message {
-    // ????
     pub(crate) sender: String,
     pub(crate) receiver: String,
+    pub(crate) delivery_time: SystemTime,
     pub(crate) filename: Vec<u8>,
     pub(crate) message: Vec<u8>,
     pub(crate) signature: String, // ????
@@ -75,16 +76,17 @@ impl Database {
         self.users.iter_mut().find(|u| u.username == username)
     }
 
-    pub fn send_message(&mut self, sender: &str, receiver: &str, filename: Vec<u8>, message: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn send_message(&mut self, sender: &str, receiver: &str, filename: Vec<u8>, delivery_time: SystemTime, message: Vec<u8>, signature: String) -> Result<(), Box<dyn std::error::Error>> {
 
         let receiver = self.get_user_mut(receiver).ok_or("Recipient not found")?;
 
         receiver.receive_messages.push(Message {
             sender: sender.to_string(),
             receiver: receiver.username.clone(),
+            delivery_time,
             filename,
             message,
-            signature: "".to_string(),
+            signature,
         });
 
         Ok(())

@@ -4,6 +4,7 @@ use crate::server::Server;
 
 use ecies::{decrypt, encrypt, utils::generate_keypair, SecretKey, PublicKey};
 
+
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
@@ -54,8 +55,10 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, Publ
     println!("Key: {:?}", key);
     println!("Len key {}", key.len());
 
+    // Key for encryption using ecies
     let (priv1, pub1) = generate_keypair();
-    let (priv2, pub2) = generate_keypair(); // TODO change to edDSA
+    // Key for signing using ed25519 TODO change
+    let (priv2, pub2) = generate_keypair();
 
     println!("Private key 1: {:?}", priv1);
     println!("Private key 2: {:?}", priv2);
@@ -67,7 +70,7 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, Publ
     let cpriv1 = cipher.encrypt(&nonce1, priv1.serialize().as_ref()).expect("encryption failure!");
     let cpriv2 = cipher.encrypt(&nonce2, priv2.serialize().as_ref()).expect("encryption failure!");
 
-    srv.register(username, salt, hash, (cpriv1), (nonce1), (pub1), (cpriv2), (nonce2), (pub2))?;
+    srv.register(username, salt, hash, cpriv1, nonce1, pub1, cpriv2, nonce2, pub2)?;
 
 
     Ok((false, "".to_string(), "".to_string(), vec![], pub_key, priv_key, pub_key, priv_key))

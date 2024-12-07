@@ -1,7 +1,8 @@
 use inquire::Text;
 use ecies::{SecretKey, PublicKey, encrypt};
+use ed25519::signature::{Signer, Verifier};
 use std::{fs, io};
-
+use std::time::SystemTime;
 use crate::server::Server;
 use crate::user_connected::UserConnected;
 
@@ -36,6 +37,18 @@ fn get_file_path() -> Result<String, io::Error> {
     }
 }
 
+fn get_timestamp() -> SystemTime {
+    // Ask the user for the timestamp
+    let timestamp = Text::new("Enter the timestamp:")
+        .prompt()
+        .unwrap();
+
+    // Convert the timestamp to a SystemTime
+    let timestamp = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(timestamp.parse().unwrap());
+
+    timestamp
+}
+
 pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
 
     // Get the username of the recipient
@@ -47,6 +60,9 @@ pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn
     // Get the file name
     let file_name = file_path.split("/").last().unwrap().as_bytes().to_vec();
 
+    // Get the timestamp
+    let timestamp = get_timestamp();
+
     // Read the file content
     let file_content = fs::read(&file_path)
         .map_err(|e| format!("Error reading file {}: {}", file_path, e))?;
@@ -55,8 +71,11 @@ pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn
     let encrypted_filename = encrypt(&pub_key_recipient, &file_name).map_err(|e| format!("Encryption error: {}", e))?;
     let encrypted_file = encrypt(&pub_key_recipient, &file_content).map_err(|e| format!("Encryption error: {}", e))?;
 
+    // Sign all the message: filename, file and timestamp
+    let signature = usr.get_priv2().Signer().sign(&[&encrypted_filename, &encrypted_file, &timestamp.to_string().as_bytes()]);
+
     // Send the file to the server
-    srv.send_message(usr.get_h().parse().unwrap(), usr.get_username(), &*username, encrypted_filename, encrypted_file)?;
+    srv.send_message(usr.get_h().parse().unwrap(), usr.get_username(), &*username, encrypted_filename, encrypted_file, signature)?;
 
     Ok(())
 }

@@ -1,6 +1,8 @@
+use std::time::SystemTime;
 use aes_gcm::aead::consts::U12;
 use aes_gcm::aes::Aes256;
 use aes_gcm::{AesGcm, Nonce};
+use ed25519::signature::{Signer, Verifier};
 use ecies::PublicKey;
 use generic_array::GenericArray;
 use crate::database::{Database};
@@ -69,7 +71,7 @@ impl Server {
         ))
     }
 
-    pub fn send_message(&mut self, hash: String, sender: &str, receiver: &str, filename: Vec<u8>, message: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn send_message(&mut self, hash: String, sender: &str, receiver: &str, delivery_time: SystemTime, filename: Vec<u8>, message: Vec<u8>, signature: String) -> Result<(), Box<dyn std::error::Error>> {
 
         // Check if the user is connected using login function
         if self.login(sender, &hash).is_err() {
@@ -77,7 +79,7 @@ impl Server {
             return Err("User not connected".into());
         }
 
-        self.db.send_message(sender, receiver, filename, message)?;
+        self.db.send_message(sender, receiver, filename, delivery_time, message, signature)?;
 
         Ok(())
     }
