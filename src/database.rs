@@ -1,20 +1,27 @@
-struct AsysmKey {
-    public_key: String,
-    cipher_private_key: String,
+use aes_gcm::aead::consts::U12;
+use aes_gcm::aes::Aes256;
+use aes_gcm::{aead, AesGcm, Nonce};
+use ecies::PublicKey;
+use generic_array::GenericArray;
+
+pub struct AsysmKey {
+    pub(crate) public_key: PublicKey,
+    pub(crate) cipher_private_key: Vec<u8>,
+    pub(crate) nonce: GenericArray<u8, U12>,
 }
 struct Message {
     // ????
     sender: String,
     receiver: String,
     message: String,
-    signature: String,
+    signature: String, // ????
 }
 pub struct User {
     username: String,
-    salt: String,
-    hash: String,
-    asysm_key_encryption: AsysmKey,
-    asysm_key_signing: AsysmKey,
+    pub(crate) salt: String,
+    pub(crate) hash: String,
+    pub(crate) asysm_key_encryption: AsysmKey,
+    pub(crate) asysm_key_signing: AsysmKey,
 
     receive_messages: Vec<Message>,
 }
@@ -28,7 +35,18 @@ impl Database {
         Database { users: Vec::new() }
     }
 
-    pub fn create_user(&mut self, username: String, salt: String, hash: String, cpriv1: String, pub1: String, cpriv2: String, pub2: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn create_user(
+        &mut self,
+        username: String,
+        salt: String,
+        hash: String,
+        cpriv1: Vec<u8>,
+        nonce1: GenericArray<u8, U12>,
+        pub1: PublicKey,
+        cpriv2: Vec<u8>,
+        nonce2: GenericArray<u8, U12>,
+        pub2: PublicKey,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.users.push(User {
             username,
             salt,
@@ -36,10 +54,12 @@ impl Database {
             asysm_key_encryption: AsysmKey {
                 public_key: pub1,
                 cipher_private_key: cpriv1,
+                nonce: nonce1,
             },
             asysm_key_signing: AsysmKey {
                 public_key: pub2,
                 cipher_private_key: cpriv2,
+                nonce: nonce2,
             },
             receive_messages: Vec::new(),
         });
