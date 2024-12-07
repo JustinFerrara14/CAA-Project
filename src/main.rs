@@ -2,45 +2,37 @@ mod register;
 mod login;
 mod database;
 mod server;
+mod send_message;
+mod receive_message;
+mod user_connected;
 
 use inquire::{Text, Select};
 use ecies::{SecretKey, PublicKey};
-
-struct UserConnected {
-    connected: bool,
-    username: String,
-    h: String,
-    k: Vec<u8>,
-    pub1: PublicKey,
-    priv1: SecretKey,
-    pub2: PublicKey,
-    priv2: SecretKey,
-}
+use user_connected::UserConnected;
+use crate::server::Server;
 
 // take a UserConnected as argument
-fn menu_connected(user: UserConnected) -> Result<(), Box<dyn std::error::Error>> {
-    loop {
-        let select = Select::new("What do you want to do?",
-                                 vec!["send message", "receive messages", "logout"])
-            .prompt()?;
-
-        match select {
-            "send message" => {
-                // TODO
-                println!("TODO send message");
-            }
-            "receive messages" => {
-                // TODO
-                println!("TODO receive messages");
-            }
-            "logout" => {
-                println!("Logged out successfully");
-                return Ok(());
-            }
-            _ => unreachable!(),
-        }
-    }
-}
+// fn menu_connected(srv: &mut Server, user: UserConnected) -> Result<(), Box<dyn std::error::Error>> {
+//     loop {
+//         let select = Select::new("What do you want to do?",
+//                                  vec!["send message", "receive messages", "logout"])
+//             .prompt()?;
+//
+//         match select {
+//             "send message" => {
+//                 send_message::send_message(&mut srv, &user)?;
+//             }
+//             "receive messages" => {
+//                 receive_message::receive_message(&mut srv, &user)?;
+//             }
+//             "logout" => {
+//                 println!("Logged out successfully");
+//                 return Ok(());
+//             }
+//             _ => unreachable!(),
+//         }
+//     }
+// }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut srv = server::Server::new();
@@ -60,20 +52,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         match result {
             Ok((connected, username, h, k, pub1, priv1, pub2, priv2)) => {
                 if connected {
-                    let user = UserConnected {
-                        connected,
-                        username,
-                        h,
-                        k,
-                        pub1,
-                        priv1,
-                        pub2,
-                        priv2,
-                    };
+                    let user = UserConnected::new(connected, username, h, k, pub1, priv1, pub2, priv2);
 
-                    println!("Connected as {}", user.username);
+                    println!("Connected as {}", user.get_username());
 
-                    menu_connected(user)?;
+                    // menu_connected(&mut srv, user)?;
+
+                    // Menu if user is connected
+                    loop {
+                        let select = Select::new("What do you want to do?",
+                                                 vec!["send message", "receive messages", "logout"])
+                            .prompt()?;
+
+                        match select {
+                            "send message" => {
+                                send_message::send_message(&mut srv, &user)?;
+                            }
+                            "receive messages" => {
+                                receive_message::receive_message(&mut srv, &user)?;
+                            }
+                            "logout" => {
+                                println!("Logged out successfully");
+                                break;
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
 
                 } else {
                     println!("Operation successful");

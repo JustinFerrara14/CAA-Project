@@ -9,21 +9,22 @@ pub struct AsysmKey {
     pub(crate) cipher_private_key: Vec<u8>,
     pub(crate) nonce: GenericArray<u8, U12>,
 }
-struct Message {
+pub struct Message {
     // ????
-    sender: String,
-    receiver: String,
-    message: String,
-    signature: String, // ????
+    pub(crate) sender: String,
+    pub(crate) receiver: String,
+    pub(crate) filename: Vec<u8>,
+    pub(crate) message: Vec<u8>,
+    pub(crate) signature: String, // ????
 }
 pub struct User {
-    username: String,
+    pub(crate) username: String,
     pub(crate) salt: String,
     pub(crate) hash: String,
     pub(crate) asysm_key_encryption: AsysmKey,
     pub(crate) asysm_key_signing: AsysmKey,
 
-    receive_messages: Vec<Message>,
+    pub(crate) receive_messages: Vec<Message>,
 }
 
 pub struct Database {
@@ -68,5 +69,29 @@ impl Database {
 
     pub fn get_user(&self, username: &str) -> Option<&User> {
         self.users.iter().find(|u| u.username == username)
+    }
+
+    pub fn get_user_mut(&mut self, username: &str) -> Option<&mut User> {
+        self.users.iter_mut().find(|u| u.username == username)
+    }
+
+    pub fn send_message(&mut self, sender: &str, receiver: &str, filename: Vec<u8>, message: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+
+        let receiver = self.get_user_mut(receiver).ok_or("Recipient not found")?;
+
+        receiver.receive_messages.push(Message {
+            sender: sender.to_string(),
+            receiver: receiver.username.clone(),
+            filename,
+            message,
+            signature: "".to_string(),
+        });
+
+        Ok(())
+    }
+
+    pub fn get_messages(&self, username: &str) -> Result<&Vec<Message>, Box<dyn std::error::Error>> {
+        let user = self.get_user(username).ok_or("User not found")?;
+        Ok(&user.receive_messages)
     }
 }
