@@ -75,6 +75,32 @@ impl Server {
         ))
     }
 
+    pub fn change_password(
+        &mut self,
+        username: String,
+        hash: String,
+        new_salt: String,
+        new_hash: String,
+        cpriv1: Vec<u8>,
+        nonce1: GenericArray<u8, U12>,
+        pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
+        cpriv2: Vec<u8>,
+        nonce2: GenericArray<u8, U12>,
+        pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+
+        if self.login(&username, &hash).is_err() {
+            println!("User not connected");
+            return Err("User not connected".into());
+        }
+
+        self.db.modify_user(
+            username, new_salt, new_hash, cpriv1, nonce1, pub1, cpriv2, nonce2, pub2,
+        )?;
+
+        Ok(())
+    }
+
     pub fn send_message(&mut self, hash: String, sender: &str, receiver: &str, delivery_time: SystemTime, filename: Vec<u8>, nonce_filename: [u8; crypto_box_NONCEBYTES as usize], message: Vec<u8>, nonce_message: [u8; crypto_box_NONCEBYTES as usize], signature: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
 
         // Check if the user is connected using login function

@@ -60,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // Menu if user is connected
                     loop {
                         let select = Select::new("What do you want to do?",
-                                                 vec!["send message", "receive messages", "logout"])
+                                                 vec!["send message", "receive messages","change password", "logout"])
                             .prompt()?;
 
                         match select {
@@ -69,6 +69,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             "receive messages" => {
                                 receive_message::receive_message(&mut srv, &user)?;
+                            }
+                            "change password" => {
+                                login::change_password(&mut srv, &user)?;
+
+                                println!("Logged out successfully");
+                                break;
                             }
                             "logout" => {
                                 println!("Logged out successfully");

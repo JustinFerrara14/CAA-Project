@@ -79,6 +79,36 @@ impl Database {
         Ok(())
     }
 
+    pub fn modify_user(
+        &mut self,
+        username: String,
+        salt: String,
+        hash: String,
+        cpriv1: Vec<u8>,
+        nonce1: GenericArray<u8, U12>,
+        pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
+        cpriv2: Vec<u8>,
+        nonce2: GenericArray<u8, U12>,
+        pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+
+        let user = self.get_user_mut(&username).ok_or("User not found")?;
+
+        user.salt = salt;
+        user.hash = hash;
+        user.asysm_key_encryption = AsysmKeyEnc {
+            public_key: pub1,
+            cipher_private_key: cpriv1,
+            nonce: nonce1,
+        };
+        user.asysm_key_signing = AsysmKeySign {
+            public_key: pub2,
+            cipher_private_key: cpriv2,
+            nonce: nonce2,
+        };
+
+        Ok(())
+    }
     pub fn get_user(&self, username: &str) -> Option<&User> {
         self.users.iter().find(|u| u.username == username)
     }
