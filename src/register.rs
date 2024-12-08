@@ -49,12 +49,6 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8;
     let key_array: [u8; 32] = key[..32].try_into().expect("slice with incorrect length");
 
 
-    println!("Len password hash {}", password_hash.len() / 2);
-    println!("Hash: {}", hash);
-    println!("Len hash {}", hash.len());
-    println!("Key: {:?}", key);
-    println!("Len key {}", key.len());
-
     // Key for encryption
     let mut pub1 = [0u8; crypto_box_PUBLICKEYBYTES as usize];
     let mut priv1 = [0u8; crypto_box_SECRETKEYBYTES as usize];
@@ -69,8 +63,6 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8;
         return Err("Failed to generate ED25519 keypair".into());
     }
 
-    println!("Private key 1: {:?}", priv1);
-    println!("Private key 2: {:?}", priv2);
 
     let cipher = Aes256Gcm::new(&key_array.into());
     let nonce1 = Aes256Gcm::generate_nonce(&mut OsRng);

@@ -39,14 +39,6 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; cr
     //let key = hex::decode(password_hash.chars().skip(64).collect::<String>())?;
     let key_array: [u8; 32] = key[..32].try_into().expect("slice with incorrect length");
 
-
-    println!("Password hash: {}", password_hash);
-    println!("Len password hash {}", password_hash.len() / 2);
-    println!("Hash: {}", hash);
-    println!("Len hash {}", hash.len());
-    println!("Key: {:?}", key);
-    println!("Len key {}", key.len());
-
     let (pub1, cpriv1, nonce1, pub2, cpriv2, nonce2) = srv.login(&username, &hash)?;
 
 
@@ -59,9 +51,6 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; cr
 
     // put in Secret Key ed25519
     let priv2 = priv2.try_into().expect("slice with incorrect length");
-
-    println!("Private key 1: {:?}", priv1);
-    println!("Private key 2: {:?}", priv2);
 
     Ok((true, username, hash, key, pub1, priv1, pub2, priv2))
 }
@@ -91,13 +80,6 @@ pub fn change_password(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
     let new_key = hex::decode(new_key_hex)?;
     //let key = hex::decode(password_hash.chars().skip(64).collect::<String>())?;
     let new_key_array: [u8; 32] = new_key[..32].try_into().expect("slice with incorrect length");
-
-    println!("Password hash: {}", new_password_hash);
-    println!("Len password hash {}", new_password_hash.len() / 2);
-    println!("Hash: {}", new_hash);
-    println!("Len hash {}", new_hash.len());
-    println!("Key: {:?}", new_key);
-    println!("Len key {}", new_key.len());
 
     let cipher = Aes256Gcm::new(&new_key_array.into());
     let nonce1 = Aes256Gcm::generate_nonce(&mut OsRng);

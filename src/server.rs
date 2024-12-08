@@ -131,9 +131,6 @@ impl Server {
         // Remove the nonce_message if the delivery_time is in the future
         for m in &mut copied_messages {
 
-            println!("Delivery time: {:?}", m.delivery_time);
-            println!("Now: {:?}", now);
-
             if m.delivery_time > now {
                 m.nonce_message = [0u8; crypto_box_NONCEBYTES as usize];
             }
