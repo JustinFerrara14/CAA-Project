@@ -7,7 +7,6 @@ mod receive_message;
 mod user_connected;
 
 use inquire::{Text, Select};
-use ecies::{SecretKey, PublicKey};
 use user_connected::UserConnected;
 use crate::server::Server;
 

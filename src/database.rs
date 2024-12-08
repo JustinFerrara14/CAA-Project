@@ -4,26 +4,37 @@ use aes_gcm::aes::Aes256;
 use aes_gcm::{aead, AesGcm, Nonce};
 use ecies::PublicKey;
 use generic_array::GenericArray;
+use libsodium_sys::*;
 
-pub struct AsysmKey {
-    pub(crate) public_key: PublicKey,
+pub struct AsysmKeyEnc {
+    pub(crate) public_key: [u8; crypto_box_PUBLICKEYBYTES as usize],
     pub(crate) cipher_private_key: Vec<u8>,
     pub(crate) nonce: GenericArray<u8, U12>,
 }
+
+pub struct AsysmKeySign {
+    pub(crate) public_key: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+    pub(crate) cipher_private_key: Vec<u8>,
+    pub(crate) nonce: GenericArray<u8, U12>,
+}
+
+#[derive(Clone)]
 pub struct Message {
     pub(crate) sender: String,
     pub(crate) receiver: String,
     pub(crate) delivery_time: SystemTime,
     pub(crate) filename: Vec<u8>,
+    pub(crate) nonce_filename: [u8; crypto_box_NONCEBYTES as usize],
     pub(crate) message: Vec<u8>,
-    pub(crate) signature: String, // ????
+    pub(crate) nonce_message: [u8; crypto_box_NONCEBYTES as usize],
+    pub(crate) signature: Vec<u8>,
 }
 pub struct User {
     pub(crate) username: String,
     pub(crate) salt: String,
     pub(crate) hash: String,
-    pub(crate) asysm_key_encryption: AsysmKey,
-    pub(crate) asysm_key_signing: AsysmKey,
+    pub(crate) asysm_key_encryption: AsysmKeyEnc,
+    pub(crate) asysm_key_signing: AsysmKeySign,
 
     pub(crate) receive_messages: Vec<Message>,
 }
@@ -44,21 +55,21 @@ impl Database {
         hash: String,
         cpriv1: Vec<u8>,
         nonce1: GenericArray<u8, U12>,
-        pub1: PublicKey,
+        pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
         cpriv2: Vec<u8>,
         nonce2: GenericArray<u8, U12>,
-        pub2: PublicKey,
+        pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.users.push(User {
             username,
             salt,
             hash,
-            asysm_key_encryption: AsysmKey {
+            asysm_key_encryption: AsysmKeyEnc {
                 public_key: pub1,
                 cipher_private_key: cpriv1,
                 nonce: nonce1,
             },
-            asysm_key_signing: AsysmKey {
+            asysm_key_signing: AsysmKeySign {
                 public_key: pub2,
                 cipher_private_key: cpriv2,
                 nonce: nonce2,
@@ -76,7 +87,7 @@ impl Database {
         self.users.iter_mut().find(|u| u.username == username)
     }
 
-    pub fn send_message(&mut self, sender: &str, receiver: &str, filename: Vec<u8>, delivery_time: SystemTime, message: Vec<u8>, signature: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn send_message(&mut self, sender: &str, receiver: &str, delivery_time: SystemTime, filename: Vec<u8>, nonce_filename: [u8; crypto_box_NONCEBYTES as usize], message: Vec<u8>, nonce_message: [u8; crypto_box_NONCEBYTES as usize], signature: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
 
         let receiver = self.get_user_mut(receiver).ok_or("Recipient not found")?;
 
@@ -85,7 +96,9 @@ impl Database {
             receiver: receiver.username.clone(),
             delivery_time,
             filename,
+            nonce_filename,
             message,
+            nonce_message,
             signature,
         });
 

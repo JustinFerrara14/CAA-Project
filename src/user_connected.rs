@@ -1,14 +1,15 @@
 use ecies::{SecretKey, PublicKey};
+use libsodium_sys::*;
 
 pub struct UserConnected {
     connected: bool,
     username: String,
     h: String,
     k: Vec<u8>,
-    pub1: PublicKey,
-    priv1: SecretKey,
-    pub2: PublicKey,
-    priv2: SecretKey,
+    pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
+    priv1: [u8; crypto_box_SECRETKEYBYTES as usize],
+    pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+    priv2: [u8; crypto_sign_SECRETKEYBYTES as usize],
 }
 
 impl UserConnected {
@@ -17,10 +18,10 @@ impl UserConnected {
         username: String,
         h: String,
         k: Vec<u8>,
-        pub1: PublicKey,
-        priv1: SecretKey,
-        pub2: PublicKey,
-        priv2: SecretKey,
+        pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
+        priv1: [u8; crypto_box_SECRETKEYBYTES as usize],
+        pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+        priv2: [u8; crypto_sign_SECRETKEYBYTES as usize],
     ) -> Self {
         UserConnected {
             connected,
@@ -46,19 +47,19 @@ impl UserConnected {
         &self.k
     }
 
-    pub fn get_pub1(&self) -> &PublicKey {
+    pub fn get_pub1(&self) -> &[u8; crypto_box_PUBLICKEYBYTES as usize] {
         &self.pub1
     }
 
-    pub fn get_priv1(&self) -> &SecretKey {
+    pub fn get_priv1(&self) -> &[u8; crypto_box_SECRETKEYBYTES as usize] {
         &self.priv1
     }
 
-    pub fn get_pub2(&self) -> &PublicKey {
+    pub fn get_pub2(&self) -> &[u8; crypto_sign_PUBLICKEYBYTES as usize] {
         &self.pub2
     }
 
-    pub fn get_priv2(&self) -> &SecretKey {
+    pub fn get_priv2(&self) -> &[u8; crypto_sign_SECRETKEYBYTES as usize] {
         &self.priv2
     }
 }

@@ -11,13 +11,13 @@ use aes_gcm::{
     Aes256Gcm, Nonce, Key // Or `Aes128Gcm`
 };
 
-use ecies::{decrypt, encrypt, utils::generate_keypair, SecretKey, PublicKey};
+use libsodium_sys::*;
 
 use generic_array::GenericArray;
 
 
 /// return connected: bool, username: String, h: String, k: Vec<u8>, pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
-pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, PublicKey, SecretKey, PublicKey, SecretKey), Box<dyn std::error::Error>> {
+pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; crypto_box_PUBLICKEYBYTES as usize], [u8; crypto_box_SECRETKEYBYTES as usize], [u8; crypto_sign_PUBLICKEYBYTES as usize], [u8; crypto_sign_SECRETKEYBYTES as usize]), Box<dyn std::error::Error>> {
     let username = Text::new("Enter your username:").prompt()?;
     let password = Text::new("Enter your password:").prompt()?;
 
@@ -54,9 +54,11 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, PublicK
     let priv1 = cipher.decrypt(&nonce1, cpriv1.as_ref()).expect("decryption failure!");
     let priv2 = cipher.decrypt(&nonce2, cpriv2.as_ref()).expect("encryption failure!");
 
-    // put in Secret Key ecies
-    let priv1 = SecretKey::parse_slice(&priv1).expect("parse failure!");
-    let priv2 = SecretKey::parse_slice(&priv2).expect("parse failure!");
+    // put in Secret Key crypto_box_keypair
+    let priv1 = priv1.try_into().expect("slice with incorrect length");
+
+    // put in Secret Key ed25519
+    let priv2 = priv2.try_into().expect("slice with incorrect length");
 
     println!("Private key 1: {:?}", priv1);
     println!("Private key 2: {:?}", priv2);

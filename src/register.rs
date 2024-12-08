@@ -3,7 +3,7 @@ use inquire::Text;
 use crate::server::Server;
 
 use ecies::{decrypt, encrypt, utils::generate_keypair, SecretKey, PublicKey};
-
+use libsodium_sys::*;
 
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
@@ -18,7 +18,7 @@ use aes_gcm::{
 use generic_array::GenericArray;
 
 /// return connected: bool, username: String, h: String, k: Vec<u8>, pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
-pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, PublicKey, SecretKey, PublicKey, SecretKey), Box<dyn std::error::Error>> {
+pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; crypto_box_PUBLICKEYBYTES as usize], [u8; crypto_box_SECRETKEYBYTES as usize], [u8; crypto_sign_PUBLICKEYBYTES as usize], [u8; crypto_sign_SECRETKEYBYTES as usize]), Box<dyn std::error::Error>> {
     let username = Text::new("Enter your username:").prompt()?;
     let password = Text::new("Enter your password:").prompt()?;
     let password_confirm = Text::new("Confirm your password:").prompt()?;
@@ -55,10 +55,19 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, Publ
     println!("Key: {:?}", key);
     println!("Len key {}", key.len());
 
-    // Key for encryption using ecies
-    let (priv1, pub1) = generate_keypair();
-    // Key for signing using ed25519 TODO change
-    let (priv2, pub2) = generate_keypair();
+    // Key for encryption
+    let mut pub1 = [0u8; crypto_box_PUBLICKEYBYTES as usize];
+    let mut priv1 = [0u8; crypto_box_SECRETKEYBYTES as usize];
+    let result = unsafe { crypto_box_keypair(pub1.as_mut_ptr(), priv1.as_mut_ptr()) };
+
+    // Key for signing using ed25519 crypto_sign_ed25519_keypair
+    let mut pub2 = [0u8; crypto_sign_PUBLICKEYBYTES as usize];
+    let mut priv2 = [0u8; crypto_sign_SECRETKEYBYTES as usize];
+    let result = unsafe { crypto_sign_ed25519_keypair(pub2.as_mut_ptr(), priv2.as_mut_ptr()) };
+
+    if result != 0 {
+        return Err("Failed to generate ED25519 keypair".into());
+    }
 
     println!("Private key 1: {:?}", priv1);
     println!("Private key 2: {:?}", priv2);
@@ -67,11 +76,14 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, Publ
     let nonce1 = Aes256Gcm::generate_nonce(&mut OsRng);
     let nonce2 = Aes256Gcm::generate_nonce(&mut OsRng);
 
-    let cpriv1 = cipher.encrypt(&nonce1, priv1.serialize().as_ref()).expect("encryption failure!");
-    let cpriv2 = cipher.encrypt(&nonce2, priv2.serialize().as_ref()).expect("encryption failure!");
+    let cpriv1 = cipher.encrypt(&nonce1, priv1.as_ref()).expect("encryption failure!");
+    let cpriv2 = cipher.encrypt(&nonce2, priv2.as_ref()).expect("encryption failure!");
 
     srv.register(username, salt, hash, cpriv1, nonce1, pub1, cpriv2, nonce2, pub2)?;
 
+    let fake_key = [0u8; crypto_sign_SECRETKEYBYTES as usize];
+    let fake_enc_key = [0u8; crypto_box_SECRETKEYBYTES as usize];
 
-    Ok((false, "".to_string(), "".to_string(), vec![], pub_key, priv_key, pub_key, priv_key))
+    // TODO remove pub2
+    Ok((false, "".to_string(), "".to_string(), vec![], pub1, fake_enc_key, pub2, fake_key))
 }
