@@ -9,6 +9,7 @@ mod user_connected;
 use inquire::{Text, Select};
 use user_connected::UserConnected;
 use crate::server::Server;
+use libsodium_sys::*;
 
 // take a UserConnected as argument
 // fn menu_connected(srv: &mut Server, user: UserConnected) -> Result<(), Box<dyn std::error::Error>> {
@@ -34,6 +35,13 @@ use crate::server::Server;
 // }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    // Initialize libsodium
+    if unsafe { sodium_init() } == -1 {
+        panic!("libsodium init failed");
+    }
+
+
     let mut srv = server::Server::new();
 
     loop {
