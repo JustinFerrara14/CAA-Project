@@ -155,7 +155,6 @@ pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn
     message_to_sign.extend_from_slice(&encrypted_filename);           // File name
     message_to_sign.extend_from_slice(&nonce1);                      // Nonce for file name
     message_to_sign.extend_from_slice(&encrypted_file);       // File content
-    message_to_sign.extend_from_slice(&nonce2);                      // Nonce for file content
     message_to_sign.extend_from_slice(usr.get_username().as_bytes());  // Sender username
     message_to_sign.extend_from_slice(&username.as_bytes()); // Recipient username
     message_to_sign.extend_from_slice(&timestamp_seconds.to_le_bytes());  // Timestamp seconds

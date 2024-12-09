@@ -1,5 +1,9 @@
-use std::time::SystemTime;
+use std::time::{SystemTime, Instant};
 use libsodium_sys::*;
+use lhtlp::LHTLP;
+use num_bigint::BigUint;
+const TIME_HARDNESS: u64 = 340000; // Constant to take 1 second
+const LAMBDA: u64 = 256;
 
 use crate::database::{Database, Message};
 
@@ -128,7 +132,40 @@ impl Server {
         for m in &mut copied_messages {
 
             if m.delivery_time > now {
+
+                // Generate time puzzles
+
+                // time in seconds
+                let time = m.delivery_time.duration_since(now).unwrap().as_secs();
+
+                let complexity = time * TIME_HARDNESS / 3;
+
+                let lhtlp = LHTLP::setup(LAMBDA, BigUint::from(complexity));
+
+                let secret = u64::from_le_bytes(m.nonce_message[..8].try_into().unwrap()); // Premier bloc
+                let secret2 = u64::from_le_bytes(m.nonce_message[8..16].try_into().unwrap()); // Deuxième bloc
+                let secret3 = u64::from_le_bytes(m.nonce_message[16..].try_into().unwrap()); // Troisième bloc
+
+                // Générer des puzzles pour chaque bloc
+                let puzzle1 = lhtlp.generate(secret);
+                let puzzle2 = lhtlp.generate(secret2);
+                let puzzle3 = lhtlp.generate(secret3);
+
+
+                // check the time needed
+                // println!("Time needed to take in seconds: {:?}", time);
+                //
+                // let start_time = Instant::now();
+                // let solution = lhtlp.solve(puzzle1.clone());
+                // let solution = lhtlp.solve(puzzle1.clone());
+                // let solution = lhtlp.solve(puzzle1.clone());
+                // let duration = start_time.elapsed();
+                //
+                // println!("Time needed to solve the puzzle: {:?}", duration);
+
+                m.puzzle_complexity = lhtlp;
                 m.nonce_message = [0u8; crypto_box_NONCEBYTES as usize];
+                m.puzzles = vec![puzzle1, puzzle2, puzzle3];
             }
         }
 

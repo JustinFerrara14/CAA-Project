@@ -1,5 +1,7 @@
 use std::time::SystemTime;
 use libsodium_sys::*;
+use num_bigint::BigUint;
+use lhtlp::LHTLP;
 
 pub struct AsysmKeyEnc {
     pub(crate) public_key: [u8; crypto_box_PUBLICKEYBYTES as usize],
@@ -22,6 +24,8 @@ pub struct Message {
     pub(crate) nonce_filename: [u8; crypto_box_NONCEBYTES as usize],
     pub(crate) message: Vec<u8>,
     pub(crate) nonce_message: [u8; crypto_box_NONCEBYTES as usize],
+    pub(crate) puzzle_complexity: LHTLP,
+    pub(crate) puzzles: Vec<(BigUint, BigUint)>,
     pub(crate) signature: Vec<u8>,
 }
 pub struct User {
@@ -124,6 +128,8 @@ impl Database {
             nonce_filename,
             message,
             nonce_message,
+            puzzle_complexity: LHTLP::setup(256, BigUint::try_from(256).unwrap()),
+            puzzles: Vec::new(),
             signature,
         });
 

@@ -3,10 +3,15 @@ use std::time::UNIX_EPOCH;
 use inquire::Text;
 use libsodium_sys::*;
 use chrono::{DateTime, Local};
+use lhtlp::LHTLP;
+use num_bigint::BigUint;
+use num_traits::ops::bytes::ToBytes;
+
 
 use crate::server::Server;
 use crate::user_connected::UserConnected;
 
+const LAMBDA: u64 = 256;
 
 pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
     let username = usr.get_username();
@@ -33,7 +38,6 @@ pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
         message_to_sign.extend_from_slice(&m.filename);
         message_to_sign.extend_from_slice(&m.nonce_filename);
         message_to_sign.extend_from_slice(&m.message);
-        message_to_sign.extend_from_slice(&m.nonce_message);
         message_to_sign.extend_from_slice(m.sender.as_bytes());
         message_to_sign.extend_from_slice(m.receiver.as_bytes());
         message_to_sign.extend_from_slice(&timestamp_seconds.to_le_bytes());
@@ -53,12 +57,6 @@ pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
 
         if verify_result != 0 {
             println!("Invalid signature for message {}", i);
-
-            if m.nonce_message == [0u8; crypto_box_NONCEBYTES as usize] {
-                println!("Invalid signature might be due to the message being sent in the future");
-            } else {
-                continue;
-            }
         }
 
         let pub_enc_key_sender = srv.get_pub_key1(&m.sender).unwrap();
@@ -85,13 +83,55 @@ pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
 
 
         if m.nonce_message == [0u8; crypto_box_NONCEBYTES as usize] {
-            decrypted_message = m.message.clone();
             let delivery_time: DateTime<Local> = DateTime::from(m.delivery_time);
             println!(
                 "Message {} can be decrypted on {}",
                 decrypted_filename.iter().map(|b| *b as char).collect::<String>(),
                 delivery_time.format("%Y-%m-%d %H:%M:%S") // Format lisible : Année-Mois-Jour Heure:Minute:Seconde
             );
+
+            // ask to use time puzzle or skip
+            let use_time_puzzle = Text::new("Do you want to decrypt the message now? (yes/no)").prompt()?;
+            if use_time_puzzle == "no" {
+                decrypted_message = m.message.clone();
+                continue;
+            }
+
+
+            // println!("puzzle complexity: {}", m.puzzle_complexity);
+            // let lhtlp = LHTLP::setup(LAMBDA, BigUint::from(m.puzzle_complexity));
+
+            let solution1 = m.puzzle_complexity.solve(m.puzzles[0].clone());
+            let solution2 =  m.puzzle_complexity.solve(m.puzzles[1].clone());
+            let solution3 =  m.puzzle_complexity.solve(m.puzzles[2].clone());
+
+            let mut nonce_message_calc = [0u8; crypto_box_NONCEBYTES as usize];
+
+            // Split the nonce_message_calc into parts corresponding to each solution
+            let solution1_bytes = solution1.to_le_bytes();
+            let solution2_bytes = solution2.to_le_bytes();
+            let solution3_bytes = solution3.to_le_bytes();
+
+            nonce_message_calc[..8].copy_from_slice(&solution1_bytes[..8]);
+            nonce_message_calc[8..16].copy_from_slice(&solution2_bytes[..8]);
+            nonce_message_calc[16..24].copy_from_slice(&solution3_bytes[..8]);
+
+            let decrypt_result_file = unsafe {
+                crypto_box_open_easy(
+                    decrypted_message.as_mut_ptr(),
+                    m.message.as_ptr(),
+                    m.message.len() as u64,
+                    nonce_message_calc.as_ptr(),
+                    pub_enc_key_sender.as_ptr(),
+                    usr.get_priv1().as_ptr(),
+                )
+            };
+
+            if decrypt_result_file != 0 {
+                return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Encryption failed")));
+            }
+
+            println!("Message {} successfully decrypted with time puzzle", decrypted_filename.iter().map(|b| *b as char).collect::<String>());
 
         } else {
             let decrypt_result_file = unsafe {
@@ -108,6 +148,8 @@ pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
             if decrypt_result_file != 0 {
                 return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Encryption failed")));
             }
+
+            println!("Message {} successfully decrypted", decrypted_filename.iter().map(|b| *b as char).collect::<String>());
         }
 
 
@@ -115,7 +157,7 @@ pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
         let file_path = format!("{}/{}", path, decrypted_filename.iter().map(|b| *b as char).collect::<String>());
         std::fs::write(&file_path, decrypted_message).map_err(|e| format!("Error writing file: {}", e))?;
 
-        println!("Message {} successfully received", decrypted_filename.iter().map(|b| *b as char).collect::<String>());
+        println!("Message {} successfully writed to disk", decrypted_filename.iter().map(|b| *b as char).collect::<String>());
 
     }
 

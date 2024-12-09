@@ -44,8 +44,6 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; cr
     let mut priv1 = [0u8; crypto_box_SECRETKEYBYTES as usize];
     let mut priv2 = [0u8; crypto_sign_SECRETKEYBYTES as usize];
 
-    println!("len priv2 : {}", priv2.len());
-    println!("len cpriv2 : {}", cpriv2.len());
 
     let result = unsafe {
         crypto_secretbox_open_easy(
