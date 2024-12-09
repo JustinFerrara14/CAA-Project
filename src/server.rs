@@ -2,10 +2,9 @@ use std::time::{SystemTime, Instant};
 use libsodium_sys::*;
 use lhtlp::LHTLP;
 use num_bigint::BigUint;
-const TIME_HARDNESS: u64 = 340000; // Constant to take 1 second
-const LAMBDA: u64 = 256;
 
 use crate::database::{Database, Message};
+use crate::consts::*;
 
 pub struct Server {
     pub(crate) db: Database,
@@ -21,14 +20,14 @@ impl Server {
     pub fn register(
         &mut self,
         username: String,
-        salt: [u8; crypto_pwhash_SALTBYTES as usize],
+        salt: [u8; SALT_LEN],
         hash: String,
         cpriv1: Vec<u8>,
-        nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
-        pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
+        nonce1: [u8; SYM_LEN_NONCE],
+        pub1: [u8; ENC_KEY_LEN_PUB],
         cpriv2: Vec<u8>,
-        nonce2: [u8; crypto_secretbox_NONCEBYTES as usize],
-        pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+        nonce2: [u8; SYM_LEN_NONCE],
+        pub2: [u8; SIGN_KEY_LEN_PUB],
     ) -> Result<(), Box<dyn std::error::Error>> {
         if self.db.get_user(&username).is_some() {
             println!("User already exists");
@@ -41,15 +40,15 @@ impl Server {
         Ok(())
     }
 
-    pub fn get_salt(& self, username: &str) -> Option<[u8; crypto_pwhash_SALTBYTES as usize]> {
+    pub fn get_salt(& self, username: &str) -> Option<[u8; SALT_LEN]> {
         self.db.get_user(username).map(|u| u.salt.clone())
     }
 
-    pub fn get_pub_key1(& self, username: &str) -> Option<[u8; crypto_box_PUBLICKEYBYTES as usize]> {
+    pub fn get_pub_key1(& self, username: &str) -> Option<[u8; ENC_KEY_LEN_PUB]> {
         self.db.get_user(username).map(|u| u.asysm_key_encryption.public_key.clone())
     }
 
-    pub fn get_pub_key2(& self, username: &str) -> Option<[u8; crypto_sign_PUBLICKEYBYTES as usize]> {
+    pub fn get_pub_key2(& self, username: &str) -> Option<[u8; SIGN_KEY_LEN_PUB]> {
         self.db.get_user(username).map(|u| u.asysm_key_signing.public_key.clone())
     }
 
@@ -58,7 +57,7 @@ impl Server {
         & self,
         username: &str,
         hash: &str,
-    ) -> Result<([u8; crypto_box_PUBLICKEYBYTES as usize], Vec<u8>, [u8; crypto_secretbox_NONCEBYTES as usize], [u8; crypto_sign_PUBLICKEYBYTES as usize], Vec<u8>, [u8; crypto_secretbox_NONCEBYTES as usize]), Box<dyn std::error::Error>> {
+    ) -> Result<([u8; ENC_KEY_LEN_PUB], Vec<u8>, [u8; SYM_LEN_NONCE], [u8; SIGN_KEY_LEN_PUB], Vec<u8>, [u8; SYM_LEN_NONCE]), Box<dyn std::error::Error>> {
         let user = self.db.get_user(username).ok_or("User not found")?;
         if user.hash != hash {
             println!("Invalid password");
@@ -79,14 +78,14 @@ impl Server {
         &mut self,
         username: String,
         hash: String,
-        new_salt: [u8; crypto_pwhash_SALTBYTES as usize],
+        new_salt: [u8; SALT_LEN],
         new_hash: String,
         cpriv1: Vec<u8>,
-        nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
-        pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
+        nonce1: [u8; SYM_LEN_NONCE],
+        pub1: [u8; ENC_KEY_LEN_PUB],
         cpriv2: Vec<u8>,
-        nonce2: [u8; crypto_secretbox_NONCEBYTES as usize],
-        pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+        nonce2: [u8; SYM_LEN_NONCE],
+        pub2: [u8; SIGN_KEY_LEN_PUB],
     ) -> Result<(), Box<dyn std::error::Error>> {
 
         if self.login(&username, &hash).is_err() {
@@ -101,7 +100,7 @@ impl Server {
         Ok(())
     }
 
-    pub fn send_message(&mut self, hash: String, sender: &str, receiver: &str, delivery_time: SystemTime, filename: Vec<u8>, nonce_filename: [u8; crypto_box_NONCEBYTES as usize], message: Vec<u8>, nonce_message: [u8; crypto_box_NONCEBYTES as usize], signature: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn send_message(&mut self, hash: String, sender: &str, receiver: &str, delivery_time: SystemTime, filename: Vec<u8>, nonce_filename: [u8; ENC_LEN_NONCE], message: Vec<u8>, nonce_message: [u8; ENC_LEN_NONCE], signature: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
 
         // Check if the user is connected using login function
         if self.login(sender, &hash).is_err() {
@@ -142,6 +141,7 @@ impl Server {
 
                 let lhtlp = LHTLP::setup(LAMBDA, BigUint::from(complexity));
 
+
                 let secret = u64::from_le_bytes(m.nonce_message[..8].try_into().unwrap()); // Premier bloc
                 let secret2 = u64::from_le_bytes(m.nonce_message[8..16].try_into().unwrap()); // Deuxième bloc
                 let secret3 = u64::from_le_bytes(m.nonce_message[16..].try_into().unwrap()); // Troisième bloc
@@ -163,8 +163,8 @@ impl Server {
                 //
                 // println!("Time needed to solve the puzzle: {:?}", duration);
 
-                m.puzzle_complexity = lhtlp;
-                m.nonce_message = [0u8; crypto_box_NONCEBYTES as usize];
+                m.puzzle_struct = lhtlp;
+                m.nonce_message = [0u8; ENC_LEN_NONCE];
                 m.puzzles = vec![puzzle1, puzzle2, puzzle3];
             }
         }

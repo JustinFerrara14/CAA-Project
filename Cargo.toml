@@ -5,13 +5,7 @@ edition = "2021"
 
 [dependencies]
 inquire = "0.7.5"
-argon2 = "0.5.3"
-rand = "0.8.4"
-rand_core = "0.6.4"
 hex = "0.4.3"
-ecies = "0.2.7"
-aes-gcm = "0.10.3"
-generic-array = "0.14.7"
 libsodium-sys-stable = "1.22.1"
 chrono = "0.4.38"
 lhtlp = "0.1.1"

@@ -1,10 +1,10 @@
-mod register;
 mod login;
 mod database;
 mod server;
 mod send_message;
 mod receive_message;
 mod user_connected;
+mod consts;
 
 use inquire::{Text, Select};
 use user_connected::UserConnected;
@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let result = match select {
             "login" => login::login(&mut srv),
-            "register" => register::register(&mut srv),
+            "register" => login::register(&mut srv),
             "exit" => return Ok(()),
             _ => unreachable!(),
         };

@@ -3,11 +3,13 @@ use std::{fs, io};
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use chrono::{Datelike, NaiveDateTime, TimeZone, Utc};
 use libsodium_sys::*;
+
 use crate::server::Server;
 use crate::user_connected::UserConnected;
+use crate::consts::*;
 
 
-fn get_recipient_pub_key(srv: &Server) -> Result<(String, [u8; crypto_box_PUBLICKEYBYTES as usize]), Box<dyn std::error::Error>> {
+fn get_recipient_pub_key(srv: &Server) -> Result<(String, [u8; ENC_KEY_LEN_PUB]), Box<dyn std::error::Error>> {
     loop {
         let username = Text::new("Enter the username of the recipient:")
             .prompt()?;
@@ -80,10 +82,97 @@ fn get_timestamp() -> Option<SystemTime> {
         }
     }
 }
+
+fn encrypt_filename(file_name: Vec<u8>, pub_key_recipient: [u8; ENC_KEY_LEN_PUB], priv_enc: [u8; ENC_KEY_LEN_PRIV]) -> Result<(Vec<u8>, [u8; ENC_LEN_NONCE]), Box<dyn std::error::Error>> {
+    // Generate a random nonce for the filename
+    let mut nonce1 = [0u8; ENC_LEN_NONCE];
+    unsafe { randombytes_buf(nonce1.as_mut_ptr() as *mut core::ffi::c_void, ENC_LEN_NONCE) };
+
+    // Encrypt the file name with crypto_box_easy
+    let mut encrypted_filename = vec![0u8; file_name.len() + ENC_LEN_MAC];
+    let encrypt_result_filename = unsafe {
+        crypto_box_easy(
+            encrypted_filename.as_mut_ptr(),
+            file_name.as_ptr(),
+            file_name.len() as u64,
+            nonce1.as_ptr(),
+            pub_key_recipient.as_ptr(),
+            priv_enc.as_ptr(),
+        )
+    };
+
+    if encrypt_result_filename != 0 {
+        return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Encryption failed for filename")));
+    }
+
+    Ok((encrypted_filename, nonce1))
+}
+
+fn encrypt_file(file_content: Vec<u8>, pub_key_recipient: [u8; ENC_KEY_LEN_PUB], priv_enc: [u8; ENC_KEY_LEN_PRIV]) -> Result<(Vec<u8>, [u8; ENC_LEN_NONCE]), Box<dyn std::error::Error>> {
+    // Generate a random nonce for the file
+    let mut nonce2 = [0u8; ENC_LEN_NONCE];
+    unsafe { randombytes_buf(nonce2.as_mut_ptr() as *mut core::ffi::c_void, ENC_LEN_NONCE) };
+
+    // Encrypt the file with crypto_box_easy
+    let mut encrypted_file = vec![0u8; file_content.len() + ENC_LEN_MAC];
+    let encrypt_result_filename = unsafe {
+        crypto_box_easy(
+            encrypted_file.as_mut_ptr(),
+            file_content.as_ptr(),
+            file_content.len() as u64,
+            nonce2.as_ptr(),
+            pub_key_recipient.as_ptr(),
+            priv_enc.as_ptr(),
+        )
+    };
+
+    if encrypt_result_filename != 0 {
+        return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Encryption failed for file")));
+    }
+
+    Ok((encrypted_file, nonce2))
+}
+
+pub fn sign_message(priv_key_sender: [u8; SIGN_KEY_LEN_PRIV], encrypted_filename: Vec<u8>, nonce1: [u8; ENC_LEN_NONCE], encrypted_file: Vec<u8>, nonce2: [u8; ENC_LEN_NONCE], sender: &str, recipient: &str, timestamp: SystemTime) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    // Convert SystemTime to seconds and nanoseconds
+    let duration_since_epoch = timestamp.duration_since(UNIX_EPOCH)
+        .map_err(|_| "Time went backwards")?;
+    let timestamp_seconds = duration_since_epoch.as_secs();
+    let timestamp_nanos = duration_since_epoch.subsec_nanos();
+
+    // Sign all the message: filename, file, sender, recipient, timestamp
+    let mut message_to_sign = Vec::new();
+    message_to_sign.extend_from_slice(&encrypted_filename);           // File name
+    message_to_sign.extend_from_slice(&nonce1);                      // Nonce for file name
+    message_to_sign.extend_from_slice(&encrypted_file);       // File content
+    message_to_sign.extend_from_slice(sender.as_bytes());  // Sender username
+    message_to_sign.extend_from_slice(recipient.as_bytes()); // Recipient username
+    message_to_sign.extend_from_slice(&timestamp_seconds.to_le_bytes());  // Timestamp seconds
+    message_to_sign.extend_from_slice(&timestamp_nanos.to_le_bytes());   // Timestamp nanoseconds
+
+    // Sign the message
+    let mut signature = vec![0u8; SIGN_LEN_SIGNATURE];
+    let signing_result = unsafe {
+        crypto_sign_detached(
+            signature.as_mut_ptr(),
+            std::ptr::null_mut(),
+            message_to_sign.as_ptr(),
+            message_to_sign.len() as u64,
+            priv_key_sender.as_ptr(),
+        )
+    };
+
+    if signing_result != 0 {
+        return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Signing failed")));
+    }
+
+    Ok(signature)
+}
+
 pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
 
     // Get the username of the recipient
-    let (username, pub_key_recipient) = get_recipient_pub_key(&srv)?;
+    let (receiver, pub_key_recipient) = get_recipient_pub_key(&srv)?;
 
     // Get the path to the file
     let file_path = get_file_path()?;
@@ -98,90 +187,17 @@ pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn
     let file_content = fs::read(&file_path)
         .map_err(|e| format!("Error reading file {}: {}", file_path, e))?;
 
-    // Generate a random nonce for the filename
-    let mut nonce1 = [0u8; crypto_box_NONCEBYTES as usize];
-    unsafe { randombytes_buf(nonce1.as_mut_ptr() as *mut core::ffi::c_void, crypto_box_NONCEBYTES as usize) };
+    // Encrypt the file name
+    let (encrypted_filename, nonce1) = encrypt_filename(file_name, pub_key_recipient, *usr.get_priv_enc())?;
 
+    // Encrypt the file
+    let (encrypted_file, nonce2) = encrypt_file(file_content, pub_key_recipient, *usr.get_priv_enc())?;
 
-    // Encrypt the file name with crypto_box_easy
-    let mut encrypted_filename = vec![0u8; file_name.len() + crypto_box_MACBYTES as usize];
-    let encrypt_result_filename = unsafe {
-        crypto_box_easy(
-            encrypted_filename.as_mut_ptr(),
-            file_name.as_ptr(),
-            file_name.len() as u64,
-            nonce1.as_ptr(),
-            pub_key_recipient.as_ptr(),
-            usr.get_priv1().as_ptr(),
-        )
-    };
-
-    if encrypt_result_filename != 0 {
-        return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Encryption failed for filename")));
-    }
-
-
-    // Generate a random nonce for the file
-    let mut nonce2 = [0u8; crypto_box_NONCEBYTES as usize];
-    unsafe { randombytes_buf(nonce2.as_mut_ptr() as *mut core::ffi::c_void, crypto_box_NONCEBYTES as usize) };
-
-    // Encrypt the file with crypto_box_easy
-    let mut encrypted_file = vec![0u8; file_content.len() + crypto_box_MACBYTES as usize];
-    let encrypt_result_filename = unsafe {
-        crypto_box_easy(
-            encrypted_file.as_mut_ptr(),
-            file_content.as_ptr(),
-            file_content.len() as u64,
-            nonce2.as_ptr(),
-            pub_key_recipient.as_ptr(),
-            usr.get_priv1().as_ptr(),
-        )
-    };
-
-    if encrypt_result_filename != 0 {
-        return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Encryption failed for file")));
-    }
-
-
-    // Convert SystemTime to seconds and nanoseconds
-    let duration_since_epoch = timestamp.duration_since(UNIX_EPOCH)
-        .map_err(|_| "Time went backwards")?;
-    let timestamp_seconds = duration_since_epoch.as_secs();
-    let timestamp_nanos = duration_since_epoch.subsec_nanos();
-
-
-    // Sign all the message: filename, file, sender, recipient, timestamp
-    let mut message_to_sign = Vec::new();
-    message_to_sign.extend_from_slice(&encrypted_filename);           // File name
-    message_to_sign.extend_from_slice(&nonce1);                      // Nonce for file name
-    message_to_sign.extend_from_slice(&encrypted_file);       // File content
-    message_to_sign.extend_from_slice(usr.get_username().as_bytes());  // Sender username
-    message_to_sign.extend_from_slice(&username.as_bytes()); // Recipient username
-    message_to_sign.extend_from_slice(&timestamp_seconds.to_le_bytes());  // Timestamp seconds
-    message_to_sign.extend_from_slice(&timestamp_nanos.to_le_bytes());   // Timestamp nanoseconds
-
-
-    // Get the secret key of the sender
-    let secret_key = usr.get_priv2();
-
-    // Sign the message using crypto_sign_ed25519
-    let mut signature = vec![0u8; crypto_sign_ed25519_BYTES as usize];
-    let signing_result = unsafe {
-        crypto_sign_ed25519_detached(
-            signature.as_mut_ptr(),
-            std::ptr::null_mut(),
-            message_to_sign.as_ptr(),
-            message_to_sign.len() as u64,
-            secret_key.as_ptr(),
-        )
-    };
-
-    if signing_result != 0 {
-        return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Signing failed")));
-    }
+    // signe the message
+    let signature = sign_message(*usr.get_priv_sign(), encrypted_filename.clone(), nonce1, encrypted_file.clone(), nonce2, usr.get_username(), &*receiver, timestamp)?;
 
     // Send the file to the server
-    srv.send_message(usr.get_h().parse().unwrap(), usr.get_username(), &*username, timestamp, encrypted_filename, nonce1, encrypted_file, nonce2, signature)?;
+    srv.send_message(usr.get_h().parse().unwrap(), usr.get_username(), &*receiver, timestamp, encrypted_filename, nonce1, encrypted_file, nonce2, signature)?;
 
     println!("Message sent successfully");
 

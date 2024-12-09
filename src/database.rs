@@ -3,16 +3,18 @@ use libsodium_sys::*;
 use num_bigint::BigUint;
 use lhtlp::LHTLP;
 
+use crate::consts::*;
+
 pub struct AsysmKeyEnc {
-    pub(crate) public_key: [u8; crypto_box_PUBLICKEYBYTES as usize],
+    pub(crate) public_key: [u8; ENC_KEY_LEN_PUB],
+    pub(crate) nonce: [u8; SYM_LEN_NONCE],
     pub(crate) cipher_private_key: Vec<u8>,
-    pub(crate) nonce: [u8; crypto_secretbox_NONCEBYTES as usize],
 }
 
 pub struct AsysmKeySign {
-    pub(crate) public_key: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+    pub(crate) public_key: [u8; SIGN_KEY_LEN_PUB],
+    pub(crate) nonce: [u8; SYM_LEN_NONCE],
     pub(crate) cipher_private_key: Vec<u8>,
-    pub(crate) nonce: [u8; crypto_secretbox_NONCEBYTES as usize],
 }
 
 #[derive(Clone)]
@@ -21,16 +23,16 @@ pub struct Message {
     pub(crate) receiver: String,
     pub(crate) delivery_time: SystemTime,
     pub(crate) filename: Vec<u8>,
-    pub(crate) nonce_filename: [u8; crypto_box_NONCEBYTES as usize],
+    pub(crate) nonce_filename: [u8; ENC_LEN_NONCE],
     pub(crate) message: Vec<u8>,
-    pub(crate) nonce_message: [u8; crypto_box_NONCEBYTES as usize],
-    pub(crate) puzzle_complexity: LHTLP,
+    pub(crate) nonce_message: [u8; ENC_LEN_NONCE],
+    pub(crate) puzzle_struct: LHTLP,
     pub(crate) puzzles: Vec<(BigUint, BigUint)>,
     pub(crate) signature: Vec<u8>,
 }
 pub struct User {
     pub(crate) username: String,
-    pub(crate) salt: [u8; crypto_pwhash_SALTBYTES as usize],
+    pub(crate) salt: [u8; SALT_LEN],
     pub(crate) hash: String,
     pub(crate) asysm_key_encryption: AsysmKeyEnc,
     pub(crate) asysm_key_signing: AsysmKeySign,
@@ -50,14 +52,14 @@ impl Database {
     pub fn create_user(
         &mut self,
         username: String,
-        salt: [u8; crypto_pwhash_SALTBYTES as usize],
+        salt: [u8; SALT_LEN],
         hash: String,
         cpriv1: Vec<u8>,
-        nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
-        pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
+        nonce1: [u8; SYM_LEN_NONCE],
+        pub1: [u8; ENC_KEY_LEN_PUB],
         cpriv2: Vec<u8>,
-        nonce2: [u8; crypto_secretbox_NONCEBYTES as usize],
-        pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+        nonce2: [u8; SYM_LEN_NONCE],
+        pub2: [u8; SIGN_KEY_LEN_PUB],
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.users.push(User {
             username,
@@ -81,14 +83,14 @@ impl Database {
     pub fn modify_user(
         &mut self,
         username: String,
-        salt: [u8; crypto_pwhash_SALTBYTES as usize],
+        salt: [u8; SALT_LEN],
         hash: String,
         cpriv1: Vec<u8>,
-        nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
-        pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
+        nonce1: [u8; SYM_LEN_NONCE],
+        pub1: [u8; ENC_KEY_LEN_PUB],
         cpriv2: Vec<u8>,
-        nonce2: [u8; crypto_secretbox_NONCEBYTES as usize],
-        pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
+        nonce2: [u8; SYM_LEN_NONCE],
+        pub2: [u8; SIGN_KEY_LEN_PUB],
     ) -> Result<(), Box<dyn std::error::Error>> {
 
         let user = self.get_user_mut(&username).ok_or("User not found")?;
@@ -116,7 +118,7 @@ impl Database {
         self.users.iter_mut().find(|u| u.username == username)
     }
 
-    pub fn send_message(&mut self, sender: &str, receiver: &str, delivery_time: SystemTime, filename: Vec<u8>, nonce_filename: [u8; crypto_box_NONCEBYTES as usize], message: Vec<u8>, nonce_message: [u8; crypto_box_NONCEBYTES as usize], signature: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn send_message(&mut self, sender: &str, receiver: &str, delivery_time: SystemTime, filename: Vec<u8>, nonce_filename: [u8; ENC_LEN_NONCE], message: Vec<u8>, nonce_message: [u8; ENC_LEN_NONCE], signature: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
 
         let receiver = self.get_user_mut(receiver).ok_or("Recipient not found")?;
 
@@ -128,7 +130,7 @@ impl Database {
             nonce_filename,
             message,
             nonce_message,
-            puzzle_complexity: LHTLP::setup(256, BigUint::try_from(256).unwrap()),
+            puzzle_struct: LHTLP::setup(15, BigUint::try_from(15).unwrap()),
             puzzles: Vec::new(),
             signature,
         });

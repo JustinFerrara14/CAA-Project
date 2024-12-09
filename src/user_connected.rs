@@ -1,14 +1,16 @@
 use libsodium_sys::*;
 
+use crate::consts::*;
+
 pub struct UserConnected {
     connected: bool,
     username: String,
     h: String,
     k: Vec<u8>,
-    pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
-    priv1: [u8; crypto_box_SECRETKEYBYTES as usize],
-    pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
-    priv2: [u8; crypto_sign_SECRETKEYBYTES as usize],
+    pub1: [u8; ENC_KEY_LEN_PUB],
+    priv1: [u8; ENC_KEY_LEN_PRIV],
+    pub2: [u8; SIGN_KEY_LEN_PUB],
+    priv2: [u8; SIGN_KEY_LEN_PRIV],
 }
 
 impl UserConnected {
@@ -17,10 +19,10 @@ impl UserConnected {
         username: String,
         h: String,
         k: Vec<u8>,
-        pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
-        priv1: [u8; crypto_box_SECRETKEYBYTES as usize],
-        pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
-        priv2: [u8; crypto_sign_SECRETKEYBYTES as usize],
+        pub1: [u8; ENC_KEY_LEN_PUB],
+        priv1: [u8; ENC_KEY_LEN_PRIV],
+        pub2: [u8; SIGN_KEY_LEN_PUB],
+        priv2: [u8; SIGN_KEY_LEN_PRIV],
     ) -> Self {
         UserConnected {
             connected,
@@ -46,19 +48,19 @@ impl UserConnected {
         &self.k
     }
 
-    pub fn get_pub1(&self) -> &[u8; crypto_box_PUBLICKEYBYTES as usize] {
+    pub fn get_pub_enc(&self) -> &[u8; ENC_KEY_LEN_PUB] {
         &self.pub1
     }
 
-    pub fn get_priv1(&self) -> &[u8; crypto_box_SECRETKEYBYTES as usize] {
+    pub fn get_priv_enc(&self) -> &[u8; ENC_KEY_LEN_PRIV] {
         &self.priv1
     }
 
-    pub fn get_pub2(&self) -> &[u8; crypto_sign_PUBLICKEYBYTES as usize] {
+    pub fn get_pub_sign(&self) -> &[u8; SIGN_KEY_LEN_PUB] {
         &self.pub2
     }
 
-    pub fn get_priv2(&self) -> &[u8; crypto_sign_SECRETKEYBYTES as usize] {
+    pub fn get_priv_sign(&self) -> &[u8; SIGN_KEY_LEN_PRIV] {
         &self.priv2
     }
 }
