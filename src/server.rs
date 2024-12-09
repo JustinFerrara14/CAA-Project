@@ -17,7 +17,7 @@ impl Server {
     pub fn register(
         &mut self,
         username: String,
-        salt: String,
+        salt: [u8; crypto_pwhash_SALTBYTES as usize],
         hash: String,
         cpriv1: Vec<u8>,
         nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
@@ -37,7 +37,7 @@ impl Server {
         Ok(())
     }
 
-    pub fn get_salt(& self, username: &str) -> Option<String> {
+    pub fn get_salt(& self, username: &str) -> Option<[u8; crypto_pwhash_SALTBYTES as usize]> {
         self.db.get_user(username).map(|u| u.salt.clone())
     }
 
@@ -75,7 +75,7 @@ impl Server {
         &mut self,
         username: String,
         hash: String,
-        new_salt: String,
+        new_salt: [u8; crypto_pwhash_SALTBYTES as usize],
         new_hash: String,
         cpriv1: Vec<u8>,
         nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],

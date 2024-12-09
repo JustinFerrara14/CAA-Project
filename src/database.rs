@@ -26,7 +26,7 @@ pub struct Message {
 }
 pub struct User {
     pub(crate) username: String,
-    pub(crate) salt: String,
+    pub(crate) salt: [u8; crypto_pwhash_SALTBYTES as usize],
     pub(crate) hash: String,
     pub(crate) asysm_key_encryption: AsysmKeyEnc,
     pub(crate) asysm_key_signing: AsysmKeySign,
@@ -46,7 +46,7 @@ impl Database {
     pub fn create_user(
         &mut self,
         username: String,
-        salt: String,
+        salt: [u8; crypto_pwhash_SALTBYTES as usize],
         hash: String,
         cpriv1: Vec<u8>,
         nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
@@ -77,7 +77,7 @@ impl Database {
     pub fn modify_user(
         &mut self,
         username: String,
-        salt: String,
+        salt: [u8; crypto_pwhash_SALTBYTES as usize],
         hash: String,
         cpriv1: Vec<u8>,
         nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],

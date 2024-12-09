@@ -1,14 +1,7 @@
 use libsodium_sys::*;
 use inquire::Text;
-
+use std::ffi::*;
 use crate::server::Server;
-
-use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
-    Argon2,
-};
-
-use generic_array::GenericArray;
 
 /// return connected: bool, username: String, h: String, k: Vec<u8>, pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
 pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; crypto_box_PUBLICKEYBYTES as usize], [u8; crypto_box_SECRETKEYBYTES as usize], [u8; crypto_sign_PUBLICKEYBYTES as usize], [u8; crypto_sign_SECRETKEYBYTES as usize]), Box<dyn std::error::Error>> {
@@ -22,21 +15,39 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8;
         return Err("Passwords do not match".into());
     }
 
-    let salt = SaltString::generate(&mut OsRng).to_string();
+    const HASH_LEN: usize = 96; // Output length for password hash
+    let mut password_hash = [0u8; HASH_LEN];
+    let mut salt = [0u8; crypto_pwhash_SALTBYTES as usize];
 
-    const HASH_LEN: usize = 96;
-    let argon2 = Argon2::default();
-    let mut output_key_material = [0u8; HASH_LEN];
-    Argon2::default().hash_password_into(password.as_bytes(), salt.as_bytes(), &mut output_key_material).expect("TODO: panic message");
+    // Generate salt
+    unsafe {
+        randombytes_buf(salt.as_mut_ptr() as *mut core::ffi::c_void, crypto_pwhash_SALTBYTES as usize);
+    }
 
-    let password_hash = hex::encode(output_key_material);
+    // Generate the password hash using Libsodium's crypto_pwhash
+    // TODO calculate parameters for OPSLIMIT and MEMLIMIT
+    let result = unsafe {
+        crypto_pwhash(
+            password_hash.as_mut_ptr(),
+            HASH_LEN as u64,
+            password.as_ptr() as *const i8,
+            password.len() as u64,
+            salt.as_ptr(),
+            crypto_pwhash_OPSLIMIT_INTERACTIVE as c_ulonglong,
+            crypto_pwhash_MEMLIMIT_INTERACTIVE as usize,
+            crypto_pwhash_ALG_ARGON2ID13 as c_int,
+        )
+    };
 
-    // take first 64 bytes as hash
-    let hash = password_hash.chars().take(64).collect::<String>();
-    let key_hex = password_hash.chars().skip(64).take(64).collect::<String>(); // 64 caractères hex pour 32 octets
+    if result != 0 {
+        return Err("Failed to hash password using libsodium".into());
+    }
+
+    // Extract key material and hash
+    let hash = hex::encode(&password_hash[..64]); // First 64 bytes for the hash
+    let key_hex = hex::encode(&password_hash[64..]); // Last 32 bytes for the encryption key
     let key = hex::decode(key_hex)?;
-    //let key = hex::decode(password_hash.chars().skip(64).collect::<String>())?;
-    let key_array: [u8; 32] = key[..32].try_into().expect("slice with incorrect length");
+    let key_array: [u8; 32] = key[..32].try_into().expect("Slice with incorrect length");
 
 
     // Key for encryption

@@ -1,10 +1,5 @@
 use inquire::Text;
-
-use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
-    Argon2,
-};
-
+use std::ffi::*;
 use libsodium_sys::*;
 
 use crate::server::Server;
@@ -18,20 +13,30 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; cr
     let salt = srv.get_salt(&username).ok_or("User not found")?;
 
     const HASH_LEN: usize = 96;
+    let mut password_hash = [0u8; HASH_LEN];
 
-    let argon2 = Argon2::default();
+    // Hash the password
+    let result = unsafe {
+        crypto_pwhash(
+            password_hash.as_mut_ptr(),
+            HASH_LEN as u64,
+            password.as_ptr() as *const i8,
+            password.len() as u64,
+            salt.as_ptr(),
+            crypto_pwhash_OPSLIMIT_INTERACTIVE as c_ulonglong,
+            crypto_pwhash_MEMLIMIT_INTERACTIVE as usize,
+            crypto_pwhash_ALG_ARGON2ID13 as c_int,
+        )
+    };
 
-    let mut output_key_material = [0u8; HASH_LEN];
-    Argon2::default().hash_password_into(password.as_bytes(), salt.as_bytes(), &mut output_key_material).expect("TODO: panic message");
+    if result != 0 {
+        return Err("Failed to hash password using libsodium".into());
+    }
 
-    let password_hash = hex::encode(output_key_material);
+    // Extract key material and hash
+    let hash = hex::encode(&password_hash[..64]);
+    let key_array: [u8; 32] = password_hash[64..].try_into().expect("Slice with incorrect length");
 
-
-    let hash = password_hash.chars().take(64).collect::<String>();
-    let key_hex = password_hash.chars().skip(64).take(64).collect::<String>(); // 64 caractères hex pour 32 octets
-    let key = hex::decode(key_hex)?;
-    //let key = hex::decode(password_hash.chars().skip(64).collect::<String>())?;
-    let key_array: [u8; 32] = key[..32].try_into().expect("slice with incorrect length");
 
     let (pub1, cpriv1, nonce1, pub2, cpriv2, nonce2) = srv.login(&username, &hash)?;
 
@@ -70,7 +75,7 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; cr
         return Err("Failed to decrypt private key".into());
     }
 
-    Ok((true, username, hash, key, pub1, priv1, pub2, priv2))
+    Ok((true, username, hash, key_array.to_vec(), pub1, priv1, pub2, priv2))
 }
 
 pub fn change_password(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
@@ -84,20 +89,35 @@ pub fn change_password(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
         return Err("Passwords do not match".into());
     }
 
-    let new_salt = SaltString::generate(&mut OsRng).to_string();
+    // Générer un nouveau sel
+    let mut new_salt = [0u8; crypto_pwhash_SALTBYTES as usize];
+    unsafe { randombytes_buf(new_salt.as_mut_ptr() as *mut core::ffi::c_void, crypto_pwhash_SALTBYTES as usize) };
 
     const HASH_LEN: usize = 96;
-    let argon2 = Argon2::default();
-    let mut output_key_material = [0u8; HASH_LEN];
-    Argon2::default().hash_password_into(password.as_bytes(), new_salt.as_bytes(), &mut output_key_material).expect("TODO: panic message");
+    let mut new_password_hash = [0u8; HASH_LEN];
 
-    let new_password_hash = hex::encode(output_key_material);
+    // Hash du nouveau mot de passe avec Libsodium
+    let result = unsafe {
+        crypto_pwhash(
+            new_password_hash.as_mut_ptr(),
+            HASH_LEN as u64,
+            password.as_ptr() as *const i8,
+            password.len() as u64,
+            new_salt.as_ptr(),
+            crypto_pwhash_OPSLIMIT_INTERACTIVE as c_ulonglong,
+            crypto_pwhash_MEMLIMIT_INTERACTIVE as usize,
+            crypto_pwhash_ALG_ARGON2ID13 as c_int,
+        )
+    };
 
-    let new_hash = new_password_hash.chars().take(64).collect::<String>();
-    let new_key_hex = new_password_hash.chars().skip(64).take(64).collect::<String>(); // 64 caractères hex pour 32 octets
-    let new_key = hex::decode(new_key_hex)?;
-    //let key = hex::decode(password_hash.chars().skip(64).collect::<String>())?;
-    let new_key_array: [u8; 32] = new_key[..32].try_into().expect("slice with incorrect length");
+    if result != 0 {
+        return Err("Failed to hash new password using libsodium".into());
+    }
+
+    // Séparer le hash et la clé
+    let new_hash = hex::encode(&new_password_hash[..64]);
+    let new_key_array: [u8; 32] = new_password_hash[64..].try_into().expect("Slice with incorrect length");
+
 
     // Encrypt private keys
     let mut cpriv1 = vec![0u8; usr.get_priv1().len() + crypto_secretbox_MACBYTES as usize];
