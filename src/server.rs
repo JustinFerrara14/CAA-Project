@@ -1,10 +1,6 @@
 use std::time::SystemTime;
-use aes_gcm::aead::consts::U12;
-use aes_gcm::aes::Aes256;
-use aes_gcm::{AesGcm, Nonce};
-use ecies::PublicKey;
 use libsodium_sys::*;
-use generic_array::GenericArray;
+
 use crate::database::{Database, Message};
 
 pub struct Server {

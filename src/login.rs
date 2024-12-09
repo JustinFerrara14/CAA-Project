@@ -1,4 +1,3 @@
-use crate::server::Server;
 use inquire::Text;
 
 use argon2::{
@@ -6,14 +5,9 @@ use argon2::{
     Argon2,
 };
 
-use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit},
-    Aes256Gcm, Nonce, Key // Or `Aes128Gcm`
-};
-
 use libsodium_sys::*;
 
-use generic_array::GenericArray;
+use crate::server::Server;
 use crate::user_connected::UserConnected;
 
 /// return connected: bool, username: String, h: String, k: Vec<u8>, pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
@@ -75,17 +69,6 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; cr
     if result != 0 {
         return Err("Failed to decrypt private key".into());
     }
-
-
-    // let cipher = Aes256Gcm::new(&key_array.into());
-    // let priv1 = cipher.decrypt(&nonce1, cpriv1.as_ref()).expect("decryption failure!");
-    // let priv2 = cipher.decrypt(&nonce2, cpriv2.as_ref()).expect("encryption failure!");
-
-    // // put in Secret Key crypto_box_keypair
-    // let priv1 = priv1.try_into().expect("slice with incorrect length");
-    //
-    // // put in Secret Key ed25519
-    // let priv2 = priv2.try_into().expect("slice with incorrect length");
 
     Ok((true, username, hash, key, pub1, priv1, pub2, priv2))
 }
@@ -156,14 +139,6 @@ pub fn change_password(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
     if result != 0 {
         return Err("Failed to encrypt private key for signing".into());
     }
-
-    // let cipher = Aes256Gcm::new(&new_key_array.into());
-    // let nonce1 = Aes256Gcm::generate_nonce(&mut OsRng);
-    // let nonce2 = Aes256Gcm::generate_nonce(&mut OsRng);
-    //
-    // let cpriv1 = cipher.encrypt(&nonce1, &usr.get_priv1()[..]).expect("encryption failure!");
-    // let cpriv2 = cipher.encrypt(&nonce2, &usr.get_priv2()[..]).expect("encryption failure!");
-
 
     srv.change_password(usr.get_username().parse().unwrap(), usr.get_h().parse().unwrap(), new_salt, new_hash, cpriv1, new_nonce1, *usr.get_pub1(), cpriv2, new_nonce2, *usr.get_pub2())?;
 

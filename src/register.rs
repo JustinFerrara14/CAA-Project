@@ -1,9 +1,7 @@
-
-use inquire::Text;
-use crate::server::Server;
-
-use ecies::{decrypt, encrypt, utils::generate_keypair, SecretKey, PublicKey};
 use libsodium_sys::*;
+use inquire::Text;
+
+use crate::server::Server;
 
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
@@ -17,9 +15,6 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8;
     let username = Text::new("Enter your username:").prompt()?;
     let password = Text::new("Enter your password:").prompt()?;
     let password_confirm = Text::new("Confirm your password:").prompt()?;
-
-    // useless key to return
-    let (priv_key, pub_key) = generate_keypair();
 
     if password != password_confirm {
         println!("Passwords do not match");
@@ -103,16 +98,6 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8;
     if result != 0 {
         return Err("Failed to encrypt private key for signing".into());
     }
-
-    // let cipher = Aes256Gcm::new(&key_array.into());
-    // let nonce1 = Aes256Gcm::generate_nonce(&mut OsRng);
-    // let nonce2 = Aes256Gcm::generate_nonce(&mut OsRng);
-    //
-    // let cpriv1 = cipher.encrypt(&nonce1, priv1.as_ref()).expect("encryption failure!");
-    // let cpriv2 = cipher.encrypt(&nonce2, priv2.as_ref()).expect("encryption failure!");
-
-    println!("len priv2 : {}", priv2.len());
-    println!("len cpriv2 : {}", cpriv2.len());
 
     srv.register(username, salt, hash, cpriv1, nonce1, pub1, cpriv2, nonce2, pub2)?;
 

@@ -11,29 +11,6 @@ use user_connected::UserConnected;
 use crate::server::Server;
 use libsodium_sys::*;
 
-// take a UserConnected as argument
-// fn menu_connected(srv: &mut Server, user: UserConnected) -> Result<(), Box<dyn std::error::Error>> {
-//     loop {
-//         let select = Select::new("What do you want to do?",
-//                                  vec!["send message", "receive messages", "logout"])
-//             .prompt()?;
-//
-//         match select {
-//             "send message" => {
-//                 send_message::send_message(&mut srv, &user)?;
-//             }
-//             "receive messages" => {
-//                 receive_message::receive_message(&mut srv, &user)?;
-//             }
-//             "logout" => {
-//                 println!("Logged out successfully");
-//                 return Ok(());
-//             }
-//             _ => unreachable!(),
-//         }
-//     }
-// }
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize libsodium

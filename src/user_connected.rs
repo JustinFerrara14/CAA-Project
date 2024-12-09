@@ -1,4 +1,3 @@
-use ecies::{SecretKey, PublicKey};
 use libsodium_sys::*;
 
 pub struct UserConnected {
