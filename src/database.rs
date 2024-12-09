@@ -9,13 +9,13 @@ use libsodium_sys::*;
 pub struct AsysmKeyEnc {
     pub(crate) public_key: [u8; crypto_box_PUBLICKEYBYTES as usize],
     pub(crate) cipher_private_key: Vec<u8>,
-    pub(crate) nonce: GenericArray<u8, U12>,
+    pub(crate) nonce: [u8; crypto_secretbox_NONCEBYTES as usize],
 }
 
 pub struct AsysmKeySign {
     pub(crate) public_key: [u8; crypto_sign_PUBLICKEYBYTES as usize],
     pub(crate) cipher_private_key: Vec<u8>,
-    pub(crate) nonce: GenericArray<u8, U12>,
+    pub(crate) nonce: [u8; crypto_secretbox_NONCEBYTES as usize],
 }
 
 #[derive(Clone)]
@@ -54,10 +54,10 @@ impl Database {
         salt: String,
         hash: String,
         cpriv1: Vec<u8>,
-        nonce1: GenericArray<u8, U12>,
+        nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
         pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
         cpriv2: Vec<u8>,
-        nonce2: GenericArray<u8, U12>,
+        nonce2: [u8; crypto_secretbox_NONCEBYTES as usize],
         pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.users.push(User {
@@ -85,10 +85,10 @@ impl Database {
         salt: String,
         hash: String,
         cpriv1: Vec<u8>,
-        nonce1: GenericArray<u8, U12>,
+        nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
         pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
         cpriv2: Vec<u8>,
-        nonce2: GenericArray<u8, U12>,
+        nonce2: [u8; crypto_secretbox_NONCEBYTES as usize],
         pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
     ) -> Result<(), Box<dyn std::error::Error>> {
 

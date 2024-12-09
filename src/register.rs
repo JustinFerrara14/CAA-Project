@@ -10,11 +10,6 @@ use argon2::{
     Argon2,
 };
 
-use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit},
-    Aes256Gcm, Nonce, Key // Or `Aes128Gcm`
-};
-
 use generic_array::GenericArray;
 
 /// return connected: bool, username: String, h: String, k: Vec<u8>, pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
@@ -54,6 +49,10 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8;
     let mut priv1 = [0u8; crypto_box_SECRETKEYBYTES as usize];
     let result = unsafe { crypto_box_keypair(pub1.as_mut_ptr(), priv1.as_mut_ptr()) };
 
+    if result != 0 {
+        return Err("Failed to generate encryption keypair".into());
+    }
+
     // Key for signing using ed25519 crypto_sign_ed25519_keypair
     let mut pub2 = [0u8; crypto_sign_PUBLICKEYBYTES as usize];
     let mut priv2 = [0u8; crypto_sign_SECRETKEYBYTES as usize];
@@ -64,12 +63,56 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8;
     }
 
 
-    let cipher = Aes256Gcm::new(&key_array.into());
-    let nonce1 = Aes256Gcm::generate_nonce(&mut OsRng);
-    let nonce2 = Aes256Gcm::generate_nonce(&mut OsRng);
+    // Encrypt private keys
+    let mut cpriv1 = vec![0u8; priv1.len() + crypto_secretbox_MACBYTES as usize];
+    let mut cpriv2 = vec![0u8; priv2.len() + crypto_secretbox_MACBYTES as usize];
 
-    let cpriv1 = cipher.encrypt(&nonce1, priv1.as_ref()).expect("encryption failure!");
-    let cpriv2 = cipher.encrypt(&nonce2, priv2.as_ref()).expect("encryption failure!");
+    let mut nonce1 = [0u8; crypto_secretbox_NONCEBYTES as usize];
+    let mut nonce2 = [0u8; crypto_secretbox_NONCEBYTES as usize];
+
+    // init the nonce
+    unsafe { randombytes_buf(nonce1.as_mut_ptr() as *mut core::ffi::c_void, crypto_secretbox_NONCEBYTES as usize) };
+    unsafe { randombytes_buf(nonce2.as_mut_ptr() as *mut core::ffi::c_void, crypto_secretbox_NONCEBYTES as usize) };
+
+    // Encrypt the private key for encryption
+    let result = unsafe {
+        crypto_secretbox_easy(
+            cpriv1.as_mut_ptr(),
+            priv1.as_ptr(),
+            priv1.len() as u64,
+            nonce1.as_ptr(),
+            key_array.as_ptr(),
+        )
+    };
+
+    if result != 0 {
+        return Err("Failed to encrypt private key for encryption".into());
+    }
+
+    // Encrypt the private key for signing
+    let result = unsafe {
+        crypto_secretbox_easy(
+            cpriv2.as_mut_ptr(),
+            priv2.as_ptr(),
+            priv2.len() as u64,
+            nonce2.as_ptr(),
+            key_array.as_ptr(),
+        )
+    };
+
+    if result != 0 {
+        return Err("Failed to encrypt private key for signing".into());
+    }
+
+    // let cipher = Aes256Gcm::new(&key_array.into());
+    // let nonce1 = Aes256Gcm::generate_nonce(&mut OsRng);
+    // let nonce2 = Aes256Gcm::generate_nonce(&mut OsRng);
+    //
+    // let cpriv1 = cipher.encrypt(&nonce1, priv1.as_ref()).expect("encryption failure!");
+    // let cpriv2 = cipher.encrypt(&nonce2, priv2.as_ref()).expect("encryption failure!");
+
+    println!("len priv2 : {}", priv2.len());
+    println!("len cpriv2 : {}", cpriv2.len());
 
     srv.register(username, salt, hash, cpriv1, nonce1, pub1, cpriv2, nonce2, pub2)?;
 

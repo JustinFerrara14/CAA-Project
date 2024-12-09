@@ -41,16 +41,51 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, String, Vec<u8>, [u8; cr
 
     let (pub1, cpriv1, nonce1, pub2, cpriv2, nonce2) = srv.login(&username, &hash)?;
 
+    // Recorver the private key
+    let mut priv1 = [0u8; crypto_box_SECRETKEYBYTES as usize];
+    let mut priv2 = [0u8; crypto_sign_SECRETKEYBYTES as usize];
 
-    let cipher = Aes256Gcm::new(&key_array.into());
-    let priv1 = cipher.decrypt(&nonce1, cpriv1.as_ref()).expect("decryption failure!");
-    let priv2 = cipher.decrypt(&nonce2, cpriv2.as_ref()).expect("encryption failure!");
+    println!("len priv2 : {}", priv2.len());
+    println!("len cpriv2 : {}", cpriv2.len());
 
-    // put in Secret Key crypto_box_keypair
-    let priv1 = priv1.try_into().expect("slice with incorrect length");
+    let result = unsafe {
+        crypto_secretbox_open_easy(
+            priv1.as_mut_ptr(),
+            cpriv1.as_ptr(),
+            cpriv1.len() as u64,
+            nonce1.as_ptr(),
+            key_array.as_ptr(),
+        )
+    };
 
-    // put in Secret Key ed25519
-    let priv2 = priv2.try_into().expect("slice with incorrect length");
+    if result != 0 {
+        return Err("Failed to decrypt private key".into());
+    }
+
+    let result = unsafe {
+        crypto_secretbox_open_easy(
+            priv2.as_mut_ptr(),
+            cpriv2.as_ptr(),
+            cpriv2.len() as u64,
+            nonce2.as_ptr(),
+            key_array.as_ptr(),
+        )
+    };
+
+    if result != 0 {
+        return Err("Failed to decrypt private key".into());
+    }
+
+
+    // let cipher = Aes256Gcm::new(&key_array.into());
+    // let priv1 = cipher.decrypt(&nonce1, cpriv1.as_ref()).expect("decryption failure!");
+    // let priv2 = cipher.decrypt(&nonce2, cpriv2.as_ref()).expect("encryption failure!");
+
+    // // put in Secret Key crypto_box_keypair
+    // let priv1 = priv1.try_into().expect("slice with incorrect length");
+    //
+    // // put in Secret Key ed25519
+    // let priv2 = priv2.try_into().expect("slice with incorrect length");
 
     Ok((true, username, hash, key, pub1, priv1, pub2, priv2))
 }
@@ -81,15 +116,56 @@ pub fn change_password(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
     //let key = hex::decode(password_hash.chars().skip(64).collect::<String>())?;
     let new_key_array: [u8; 32] = new_key[..32].try_into().expect("slice with incorrect length");
 
-    let cipher = Aes256Gcm::new(&new_key_array.into());
-    let nonce1 = Aes256Gcm::generate_nonce(&mut OsRng);
-    let nonce2 = Aes256Gcm::generate_nonce(&mut OsRng);
+    // Encrypt private keys
+    let mut cpriv1 = vec![0u8; usr.get_priv1().len() + crypto_secretbox_MACBYTES as usize];
+    let mut cpriv2 = vec![0u8; usr.get_priv2().len() + crypto_secretbox_MACBYTES as usize];
 
-    let cpriv1 = cipher.encrypt(&nonce1, &usr.get_priv1()[..]).expect("encryption failure!");
-    let cpriv2 = cipher.encrypt(&nonce2, &usr.get_priv2()[..]).expect("encryption failure!");
+    let mut new_nonce1 = [0u8; crypto_secretbox_NONCEBYTES as usize];
+    let mut new_nonce2 = [0u8; crypto_secretbox_NONCEBYTES as usize];
+
+    // init the nonce
+    unsafe { randombytes_buf(new_nonce1.as_mut_ptr() as *mut core::ffi::c_void, crypto_secretbox_NONCEBYTES as usize) };
+    unsafe { randombytes_buf(new_nonce1.as_mut_ptr() as *mut core::ffi::c_void, crypto_secretbox_NONCEBYTES as usize) };
+
+    // Encrypt the private key for encryption
+    let result = unsafe {
+        crypto_secretbox_easy(
+            cpriv1.as_mut_ptr(),
+            usr.get_priv1().as_ptr(),
+            usr.get_priv1().len() as u64,
+            new_nonce1.as_ptr(),
+            new_key_array.as_ptr(),
+        )
+    };
+
+    if result != 0 {
+        return Err("Failed to encrypt private key for encryption".into());
+    }
+
+    // Encrypt the private key for signing
+    let result = unsafe {
+        crypto_secretbox_easy(
+            cpriv2.as_mut_ptr(),
+            usr.get_priv2().as_ptr(),
+            usr.get_priv2().len() as u64,
+            new_nonce2.as_ptr(),
+            new_key_array.as_ptr(),
+        )
+    };
+
+    if result != 0 {
+        return Err("Failed to encrypt private key for signing".into());
+    }
+
+    // let cipher = Aes256Gcm::new(&new_key_array.into());
+    // let nonce1 = Aes256Gcm::generate_nonce(&mut OsRng);
+    // let nonce2 = Aes256Gcm::generate_nonce(&mut OsRng);
+    //
+    // let cpriv1 = cipher.encrypt(&nonce1, &usr.get_priv1()[..]).expect("encryption failure!");
+    // let cpriv2 = cipher.encrypt(&nonce2, &usr.get_priv2()[..]).expect("encryption failure!");
 
 
-    srv.change_password(usr.get_username().parse().unwrap(), usr.get_h().parse().unwrap(), new_salt, new_hash, cpriv1, nonce1, *usr.get_pub1(), cpriv2, nonce2, *usr.get_pub2())?;
+    srv.change_password(usr.get_username().parse().unwrap(), usr.get_h().parse().unwrap(), new_salt, new_hash, cpriv1, new_nonce1, *usr.get_pub1(), cpriv2, new_nonce2, *usr.get_pub2())?;
 
     Ok(())
 }

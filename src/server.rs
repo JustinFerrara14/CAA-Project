@@ -24,10 +24,10 @@ impl Server {
         salt: String,
         hash: String,
         cpriv1: Vec<u8>,
-        nonce1: GenericArray<u8, U12>,
+        nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
         pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
         cpriv2: Vec<u8>,
-        nonce2: GenericArray<u8, U12>,
+        nonce2: [u8; crypto_secretbox_NONCEBYTES as usize],
         pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
     ) -> Result<(), Box<dyn std::error::Error>> {
         if self.db.get_user(&username).is_some() {
@@ -58,7 +58,7 @@ impl Server {
         & self,
         username: &str,
         hash: &str,
-    ) -> Result<([u8; crypto_box_PUBLICKEYBYTES as usize], Vec<u8>, GenericArray<u8, U12>, [u8; crypto_sign_PUBLICKEYBYTES as usize], Vec<u8>, GenericArray<u8, U12>), Box<dyn std::error::Error>> {
+    ) -> Result<([u8; crypto_box_PUBLICKEYBYTES as usize], Vec<u8>, [u8; crypto_secretbox_NONCEBYTES as usize], [u8; crypto_sign_PUBLICKEYBYTES as usize], Vec<u8>, [u8; crypto_secretbox_NONCEBYTES as usize]), Box<dyn std::error::Error>> {
         let user = self.db.get_user(username).ok_or("User not found")?;
         if user.hash != hash {
             println!("Invalid password");
@@ -82,10 +82,10 @@ impl Server {
         new_salt: String,
         new_hash: String,
         cpriv1: Vec<u8>,
-        nonce1: GenericArray<u8, U12>,
+        nonce1: [u8; crypto_secretbox_NONCEBYTES as usize],
         pub1: [u8; crypto_box_PUBLICKEYBYTES as usize],
         cpriv2: Vec<u8>,
-        nonce2: GenericArray<u8, U12>,
+        nonce2: [u8; crypto_secretbox_NONCEBYTES as usize],
         pub2: [u8; crypto_sign_PUBLICKEYBYTES as usize],
     ) -> Result<(), Box<dyn std::error::Error>> {
 
