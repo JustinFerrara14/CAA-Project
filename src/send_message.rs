@@ -197,7 +197,8 @@ pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn
     let signature = sign_message(*usr.get_priv_sign(), encrypted_filename.clone(), nonce1, encrypted_file.clone(), nonce2, usr.get_username(), &*receiver, timestamp)?;
 
     // Send the file to the server
-    srv.send_message(usr.get_h().parse().unwrap(), usr.get_username(), &*receiver, timestamp, encrypted_filename, nonce1, encrypted_file, nonce2, signature)?;
+    // TODO change
+    srv.send_message(usr.get_username(), &*receiver, timestamp, encrypted_filename, nonce1, encrypted_file, nonce2, signature)?;
 
     println!("Message sent successfully");
 

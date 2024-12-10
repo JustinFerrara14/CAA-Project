@@ -103,7 +103,7 @@ fn solve_puzzle(m: &Message) -> Result<[u8; ENC_LEN_NONCE], Box<dyn std::error::
 
 pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
     let username = usr.get_username();
-    let messages = srv.get_messages(usr.get_h().parse().unwrap(), username);
+    let messages = srv.get_messages(username);
 
     println!("Messages received");
 

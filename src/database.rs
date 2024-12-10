@@ -2,8 +2,11 @@ use std::time::SystemTime;
 use libsodium_sys::*;
 use num_bigint::BigUint;
 use lhtlp::LHTLP;
+use opaque_ke::*;
+use generic_array::GenericArray;
 
 use crate::consts::*;
+use crate::server::DefaultCipherSuite;
 
 pub struct AsysmKeyEnc {
     pub(crate) public_key: [u8; ENC_KEY_LEN_PUB],
@@ -32,8 +35,7 @@ pub struct Message {
 }
 pub struct User {
     pub(crate) username: String,
-    pub(crate) salt: [u8; SALT_LEN],
-    pub(crate) hash: String,
+    pub(crate) password_file: GenericArray<u8, ServerRegistrationLen<DefaultCipherSuite>>,
     pub(crate) asysm_key_encryption: AsysmKeyEnc,
     pub(crate) asysm_key_signing: AsysmKeySign,
 
@@ -46,14 +48,15 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Self {
-        Database { users: Vec::new() }
+        Database {
+            users: Vec::new(),
+        }
     }
 
     pub fn create_user(
         &mut self,
         username: String,
-        salt: [u8; SALT_LEN],
-        hash: String,
+        password_file: GenericArray<u8, ServerRegistrationLen<DefaultCipherSuite>>,
         cpriv1: Vec<u8>,
         nonce1: [u8; SYM_LEN_NONCE],
         pub1: [u8; ENC_KEY_LEN_PUB],
@@ -63,8 +66,7 @@ impl Database {
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.users.push(User {
             username,
-            salt,
-            hash,
+            password_file,
             asysm_key_encryption: AsysmKeyEnc {
                 public_key: pub1,
                 cipher_private_key: cpriv1,
@@ -83,8 +85,7 @@ impl Database {
     pub fn modify_user(
         &mut self,
         username: String,
-        salt: [u8; SALT_LEN],
-        hash: String,
+        password_file: GenericArray<u8, ServerRegistrationLen<DefaultCipherSuite>>,
         cpriv1: Vec<u8>,
         nonce1: [u8; SYM_LEN_NONCE],
         pub1: [u8; ENC_KEY_LEN_PUB],
@@ -95,8 +96,7 @@ impl Database {
 
         let user = self.get_user_mut(&username).ok_or("User not found")?;
 
-        user.salt = salt;
-        user.hash = hash;
+        user.password_file = password_file;
         user.asysm_key_encryption = AsysmKeyEnc {
             public_key: pub1,
             cipher_private_key: cpriv1,

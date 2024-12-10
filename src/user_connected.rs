@@ -1,12 +1,13 @@
-use libsodium_sys::*;
+use generic_array::GenericArray;
+use generic_array::typenum::U64;
 
 use crate::consts::*;
 
 pub struct UserConnected {
     connected: bool,
     username: String,
-    h: String,
-    k: Vec<u8>,
+    key: Vec<u8>,
+    key_communication: GenericArray<u8, U64>,
     pub1: [u8; ENC_KEY_LEN_PUB],
     priv1: [u8; ENC_KEY_LEN_PRIV],
     pub2: [u8; SIGN_KEY_LEN_PUB],
@@ -17,8 +18,8 @@ impl UserConnected {
     pub fn new(
         connected: bool,
         username: String,
-        h: String,
-        k: Vec<u8>,
+        key: Vec<u8>,
+        key_communication: GenericArray<u8, U64>,
         pub1: [u8; ENC_KEY_LEN_PUB],
         priv1: [u8; ENC_KEY_LEN_PRIV],
         pub2: [u8; SIGN_KEY_LEN_PUB],
@@ -27,8 +28,8 @@ impl UserConnected {
         UserConnected {
             connected,
             username,
-            h,
-            k,
+            key,
+            key_communication,
             pub1,
             priv1,
             pub2,
@@ -40,12 +41,12 @@ impl UserConnected {
         &self.username
     }
 
-    pub fn get_h(&self) -> &str {
-        &self.h
+    pub fn get_key(&self) -> &Vec<u8> {
+        &self.key
     }
 
-    pub fn get_k(&self) -> &Vec<u8> {
-        &self.k
+    pub fn get_key_communication(&self) -> &GenericArray<u8, U64> {
+        &self.key_communication
     }
 
     pub fn get_pub_enc(&self) -> &[u8; ENC_KEY_LEN_PUB] {
