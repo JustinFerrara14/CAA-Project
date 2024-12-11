@@ -55,11 +55,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             "change password" => {
                                 login::change_password(&mut srv, &user)?;
+                                login::logout(&mut srv, &user)?;
 
                                 println!("Logged out successfully");
                                 break;
                             }
                             "logout" => {
+                                login::logout(&mut srv, &user)?;
+
                                 println!("Logged out successfully");
                                 break;
                             }

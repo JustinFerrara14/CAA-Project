@@ -170,6 +170,15 @@ impl Server {
         Ok(())
     }
 
+    pub fn logout(&mut self, username: &str, mac: [u8; MAC_LEN]) -> Result<(), Box<dyn std::error::Error>> {
+        // Check if the user is connected using mac
+        self.check_mac(username, mac)?;
+
+        self.db.disconnect_user()?;
+
+        Ok(())
+    }
+
     pub fn get_pub_key_enc(& self, username: &str, mac: [u8; MAC_LEN], username_pub_key: &str) -> Option<[u8; ENC_KEY_LEN_PUB]> {
         // Check if the user is connected using mac
         self.check_mac(username, mac).ok()?;

@@ -1,5 +1,4 @@
 use std::time::SystemTime;
-use libsodium_sys::*;
 use num_bigint::BigUint;
 use lhtlp::LHTLP;
 use opaque_ke::*;
@@ -74,6 +73,14 @@ impl Database {
 
     pub fn get_connected_user(&self) -> &ConnectedUser {
         &self.connected_user
+    }
+
+    pub fn disconnect_user(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        self.connected_user = ConnectedUser {
+            username: String::new(),
+            key_communication: GenericArray::default(),
+        };
+        Ok(())
     }
 
     pub fn create_user(

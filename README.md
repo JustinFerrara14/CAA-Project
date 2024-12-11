@@ -1,7 +1,10 @@
 # CAA-Project Ferrara Justin
 
 ## Niveau de sécurité choisi
-Dans ce projet, j'ai choisi de partir sur un niveau de sécurité de 256 bits pour la cryptographie symétriques.
+Dans ce projet, j'ai choisi de partir sur un niveau de sécurité de 256 bits pour la cryptographie symétriques:
+- cryptographie symétrique: 256 bits
+- Hash : 512 bits
+- Taille clés pour courbes elliptiques : 512 bits
 
 ## Contraintes client
 Le client dispose uniquement de son nom d'utilisateur et son mot de passe.
@@ -89,6 +92,7 @@ Server:
 password\_file  = OPAQUE_{ServerRegistrationFinish}(username, client\_registration\_finish\_result, cpriv1 || tag1 || IV1, pub1, cpriv2 || tag2 || IV2, pub2)
 $$
 - Le serveur associe `password_file` avec le username et les clés asymétrique uniquement si l'échange OPAQUE a réussi.
+- Si il existe déjà un username dans la base de donnée, le server refuse d'écrire `password_file`
 ## Login
 - Le client renseigne son nom d'utilisateur et son mot de passe.
 - Le client fait un échange OPAQUE avec le serveur :
@@ -105,7 +109,7 @@ $$
 Client: client\_login\_finish\_result = OPAQUE_{ClientLoginFinish}(password, server\_Login\_start\_result)
 $$
 $$
-Client: key = client\_login\_finish\_result.sessio\_key
+Client: key = client\_login\_finish\_result.export\_key\_key
 $$
 $$
 Client: key\_communication = client\_login\_finish\_result.session\_key
@@ -117,7 +121,7 @@ $$
 $$
 Server: key\_communication = server\_login\_finish\_result.session\_key
 $$
-- Le serveur renvoie (cpriv1, pub1, cpriv2, pub2) au client.
+- Le serveur renvoie (cpriv1, pub1, cpriv2, pub2) au client à la fin de la connexion OPAQUE si la connexion a réussi.
 - Le client déchiffre cpriv1 et cpriv2 avec SymDec :
 $$
 priv1 = SymDec_{key}(cpriv1||tag1||IV1)
@@ -130,6 +134,13 @@ $$
 $$
 priv1 * G = pub1
 $$
+- Le client possède donc :
+	- key
+	- key_communication
+	- priv1
+	- pub1
+	- priv2
+	- pub2
 ## Changement de mot de passe
 - Le client fait un login normal.
 - Le client possède donc (priv1, pub1, priv2, pub2, key, key_communication).
@@ -138,25 +149,35 @@ $$
 $$
 newKey = OPAQUE_{register}
 $$
-> On notera que comme l'utilisateur existe déjà, le serveur vérifie que l'utilisateur est bien en possession de la clé key_communiction en vérifiant ?????.
-- Le client chiffre priv1 et priv2 avec AES-GCM et newKey :
+- Le client chiffre priv1 et priv2 avec SymEnc et newKey :
 $$
 IV1 = random[0..95]
 $$$$
-cpriv1||tag1 = AES\_GCM_{newK}(IV1, priv1)
+cpriv1||tag1 = SymEnc_{newKey}(IV1, priv1)
 $$$$
 IV2 = random[0..95]
 $$$$
-cpriv2||tag2 = AES\_GCM_{newK}(IV2, priv2)
+cpriv2||tag2 = SymEnc_{newKey}(IV2, priv2)
 $$
-- Le client envoie au server les nouvelles clés comme dans la partie registration. ????
+- Le client envoie au server les nouvelles clés comme dans la partie registration `ServerFinishRegistration`.
+
+> On notera que comme l'utilisateur existe déjà dans la base de données, le serveur vérifie que l'utilisateur est bien en possession de la clé key_communiction en vérifiant le MAC :
+$$
+
+auth = MAC_{key\_communication}(username)
+$$
+- Si le MAC est juste, alors le serveur accepte de changer le `password_file` dans la base de données, à la fin de l'échange dans server_registration_finish.
 
 ## Envoi de Message
 - Le client fait un login normal.
-- Le client possède donc (priv1, pub1, priv2, pub2, key, key_communication
+- Le client possède donc (priv1, pub1, priv2, pub2, key, key_communication)
 - L'utilisateur rentre le destinataire, le fichier à envoyer et le timestamp auquel le destinataire pourra l'ouvrir.
-- Le client demande la clé publique du destinataire du Message au serveur en envoyant son username et le MAC associé généré avec la clé key_communication
-- Le serveur vérifie le MAC et renvoie la clé publique correspondante pub1Dest.
+- Le client génére un le MAC :
+$$
+auth = MAC_{key\_communication}(username)
+$$
+- Le client demande la clé publique du destinataire du Message au serveur en envoyant son username et le MAC.
+- Le serveur vérifie le MAC avec sa clé key_communication et renvoie la clé publique correspondante pub1Dest.
 - Le client utilise `HybEnc` pour chiffrer le fichier et le nom de fichier en utilisant la clé publique du destinataire :
 $$
 nonceFilename = random[???]
@@ -165,10 +186,10 @@ $$
 nonceFile = random[???]
 $$
 $$
-cipher1 = HybEnc(pub1Dest, priv1, filename, nonceFilename)
+cipher1 = HybEnc(filename, nonceFilename, pub1Dest, priv1)
 $$
 $$
-cipher2 = HybEnc(pub1Dest, priv1, file, nonceFile)
+cipher2 = HybEnc(file, nonceFile, pub1Dest, priv1)
 $$
 - Le client signe le Message complet et la date autorisée d'ouverture du Message avec priv2
 
@@ -197,12 +218,14 @@ $$
 - Le serveur vérifie si auth est juste, si c'est le cas, il renvoie tous les message au destinataire de la manière suivante:
 	- Si le timestamp du message est dans le passé alors le serveur envoie :
 $$
-sender, receiver, timestamp, nonceFilename, cipherFilename, nonceFile, cipherFile
+sender, receiver, timestamp, nonceFilename, cipherFilename, nonceFile, cipherFile, timePuzzle
 $$
 	- Si le timestamp est dans le futur, le serveur envoie tout mais met `nonceFile` à 0:
 $$
-sender, receiver, timestamp, nonceFilename, cipherFilename, 0, cipherFile
+sender, receiver, timestamp, nonceFilename, cipherFilename, 0, cipherFile, timePuzzle
 $$
+> Dans le cas ou le client à le droit de déchiffrer le message et que donc il est en possession du nonceFile, le serveur renvoie quand même un timePuzzle qui ne sert à rien. C'est pour simplifier l'implémentation.
+> 
 - Le client reçoit du serveur le message.
 - Le client vérifie que la signature du Message est correcte
 $$
@@ -212,17 +235,17 @@ $$
 signature = siganture'
 $$
 - Le client check si le nonceFile vaut 0:
-	- si c'est le cas le client propose à l'utilisateur de déchiffrer localement
-	- sinon le client écrit sur le disque le fichier chiffré
+	- si c'est le cas le client propose à l'utilisateur de déchiffrer localement en utilisant le time lock puzzle. Le client va donc ensuite commencer les calculs pour retrouver le nonceFile. Le nonceFile sera trouvé quand le time lock puzzle sera résolu, ce qui devrait prendre le même temps que d'attendre que le temps s'écoule et demander le nonceFile au serveur.
+	- sinon le client écrit sur le disque le fichier chiffré sans pouvoir le déchiffrer. Il peut cependant déjà mettre le bon nom de fichier comme il a en sa possession filename et nonceFilename. Il peut également indiquer la date à laquelle le message pourra être déchiffré.
 - Si le nonceFile ne vaut pas 0, le client déchiffre le Message m :
 $$
-m = HybDec(priv1, pubSender) ????????????
+m = HybDec(priv1, pubSender)
 $$
 ## Types d'adversaires
 - **Adversaires Actifs** :   
-  - **Signatures Numériques** : Les messages sont signés avec les clés privées des utilisateurs, empêchant ainsi la répudiation et garantissant l'authenticité des messages.  
+  - **Signatures Numériques** : Les messages sont signés avec les clés privées des utilisateurs, empêchant ainsi la répudiation et garantissant l'authenticité des messages. 
   - **Utilisation de TLS 1.3** : Toutes les communications entre le client et le serveur sont sécurisées avec TLS 1.3, protégeant les données en transit contre les interceptions et les modifications.  
 - **Serveur Honnête mais Curieux** :   
-  -  **Chiffrement de Bout en Bout** : Les messages sont chiffrés de bout en bout avec ECIES, garantissant que seuls les destinataires prévus peuvent les déchiffrer.  
-  - **Stockage Sécurisé des Clés** : Les clés privées des utilisateurs sont stockées chiffrées sur le serveur, empêchant l'accès non autorisé même en cas de compromission du serveur  
-  - **Authentification Forte** : Utilisation de Argon2 pour le hachage des mots de passe, garantissant une résistance aux attaques par force brute.
+  -  **Chiffrement de Bout en Bout** : Les messages sont chiffrés de bout en bout avec en utilisant du chiffrement hybride. Ce qui empêche le serveur d'en lire le contenu.
+  - **Stockage Sécurisé des Clés** : Les clés privées des utilisateurs sont stockées chiffrées sur le serveur, empêchant l'accès non autorisé même en cas de compromission du serveur.
+  - **Échange de clés authentifié** : L'utilisation de OPAQUE permet d'authentifier les utilisateurs, sans sortir le sel du serveur ce qui permet de ne pas avoir d'attaque à sel connu. Cela permet également de dériver une clé secrète côté client, et un clé symétrique partagée avec le serveur pour authentifié les requêtes suivantes provenant du client.

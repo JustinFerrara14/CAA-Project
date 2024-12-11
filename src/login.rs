@@ -1,21 +1,18 @@
 use inquire::Text;
-use std::ffi::*;
 use std::io;
 use generic_array::GenericArray;
 use generic_array::typenum::U64;
 use libsodium_sys::*;
 
 use crate::server::Server;
-use crate::server::*;
 use crate::server::DefaultCipherSuite;
 use crate::user_connected::UserConnected;
 use crate::consts::*;
 
 use opaque_ke::*;
 use rand::rngs::OsRng;
-use rand::RngCore;
 
-fn calculate_mac(username: &str, key_communication: Vec<u8>) -> Result<([u8; MAC_LEN]), Box<dyn std::error::Error>> {
+fn calculate_mac(username: &str, key_communication: Vec<u8>) -> Result<[u8; MAC_LEN], Box<dyn std::error::Error>> {
     let mut mac = [0u8; MAC_LEN];
 
     let result = unsafe {
@@ -225,6 +222,12 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray<u8
     let mac = calculate_mac(&username, key_communication.to_vec())?;
 
     Ok((true, username, key.to_vec(), key_communication, mac, pub1, priv1, pub2, priv2))
+}
+
+// The mac verifiaction here is useless beacause the server can only manage 1 connection at a time
+pub fn logout(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
+    srv.logout(&usr.get_username(), usr.get_mac().clone())?;
+    Ok(())
 }
 
 pub fn change_password(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {

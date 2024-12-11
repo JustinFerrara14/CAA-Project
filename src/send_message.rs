@@ -42,13 +42,13 @@ fn get_file_path() -> Result<String, io::Error> {
 fn get_timestamp() -> Option<SystemTime> {
     loop {
         // Demander une date et heure dans le format spécifié
-        let input = Text::new("Enter the date of opening (YYYY:MM:DD HH:MM):")
+        let input = Text::new("Enter the date of opening (YYYY.MM.DD HH:MM):")
             .prompt();
 
         match input {
             Ok(datetime_str) => {
                 // Valider et convertir l'entrée
-                match NaiveDateTime::parse_from_str(&datetime_str, "%Y:%m:%d %H:%M") {
+                match NaiveDateTime::parse_from_str(&datetime_str, "%Y.%m.%d %H:%M") {
                     Ok(naive_dt) => {
                         // Vérifier si la date est valide en termes de calendrier
                         if naive_dt.year() < 1970 {
