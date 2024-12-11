@@ -40,8 +40,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     println!("Connected as {}", user.get_username());
 
-                    // menu_connected(&mut srv, user)?;
-
                     // Menu if user is connected
                     loop {
                         let select = Select::new("What do you want to do?",

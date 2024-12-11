@@ -52,7 +52,7 @@ impl Server {
     }
 
     pub fn server_registration_finish(&mut self, client_registration_finish_result: ClientRegistrationFinishResult<DefaultCipherSuite>,
-        username: String,
+        username: &str,
         cpriv1: Vec<u8>,
         nonce1: [u8; SYM_LEN_NONCE],
         pub1: [u8; ENC_KEY_LEN_PUB],
@@ -67,13 +67,10 @@ impl Server {
         let password_file_bytes = password_file.serialize();
 
         if self.db.get_user(&username).is_some() {
-            // TODO check if the user is connected
-            self.db.modify_user(
-                username, password_file_bytes, cpriv1, nonce1, pub1, cpriv2, nonce2, pub2,
-            )?;
+            // Do nothing if the user already exists
         } else {
             self.db.create_user(
-                username,
+                username.parse().unwrap(),
                 password_file_bytes,
                 cpriv1,
                 nonce1,
@@ -81,6 +78,34 @@ impl Server {
                 cpriv2,
                 nonce2,
                 pub2,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn server_registration_finish_update(&mut self, client_registration_finish_result: ClientRegistrationFinishResult<DefaultCipherSuite>,
+        username: &str,
+        mac: [u8; MAC_LEN],
+        cpriv1: Vec<u8>,
+        nonce1: [u8; SYM_LEN_NONCE],
+        pub1: [u8; ENC_KEY_LEN_PUB],
+        cpriv2: Vec<u8>,
+        nonce2: [u8; SYM_LEN_NONCE],
+        pub2: [u8; SIGN_KEY_LEN_PUB]
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let password_file = ServerRegistration::<DefaultCipherSuite>::finish(
+            client_registration_finish_result.message,
+        );
+
+        let password_file_bytes = password_file.serialize();
+
+        // Check if the user is connected using mac
+        self.check_mac(&*username, mac).ok();
+
+        if self.db.get_user(&username).is_some() {
+            self.db.modify_user(
+                username.parse().unwrap(), password_file_bytes, cpriv1, nonce1, pub1, cpriv2, nonce2, pub2,
             )?;
         }
 

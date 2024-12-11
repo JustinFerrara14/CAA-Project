@@ -180,7 +180,7 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray
     // generate asym keys
     let (pub1, nonce1, cpriv1, pub2, nonce2, cpriv2) = generate_asym_key(&key)?;
 
-    srv.server_registration_finish(client_registration_finish_result, username, cpriv1, nonce1, pub1, cpriv2, nonce2, pub2)?;
+    srv.server_registration_finish(client_registration_finish_result, &username, cpriv1, nonce1, pub1, cpriv2, nonce2, pub2)?;
 
 
     // TODO change
@@ -259,7 +259,7 @@ pub fn change_password(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
     // Encrypt private keys
     let (new_nonce1, cpriv1, new_nonce2, cpriv2) = enc_key(&usr.get_priv_enc().to_vec(), &usr.get_priv_sign().to_vec(), &new_key)?;
 
-    srv.server_registration_finish(client_registration_finish_result, usr.get_username().clone().parse().unwrap(), cpriv1, new_nonce1, *usr.get_pub_enc(), cpriv2, new_nonce2, *usr.get_pub_sign())?;
+    srv.server_registration_finish_update(client_registration_finish_result, usr.get_username(), usr.get_mac().clone(), cpriv1, new_nonce1, *usr.get_pub_enc(), cpriv2, new_nonce2, *usr.get_pub_sign())?;
 
     Ok(())
 }
