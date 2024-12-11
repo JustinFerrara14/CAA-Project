@@ -10,6 +10,8 @@ use rand::RngCore;
 use opaque_ke::*;
 use opaque_ke::ksf::Ksf;
 use std::default::Default;
+use std::error::Error;
+use std::{io, result};
 use argon2::Argon2;
 
 #[allow(dead_code)]
@@ -109,8 +111,9 @@ impl Server {
             client_login_finish_result.message,
         ).map_err(|e| e.to_string())?;
 
-        // TODO use to communicate with the client
-        let key = server_login_finish_result.session_key.clone();
+        // Key to check if the user is connected
+        let key_communication = server_login_finish_result.session_key.clone();
+        self.db.connect_user(username.to_string(), key_communication)?;
 
         let user = self.db.get_user(&*username).unwrap();
 
@@ -124,37 +127,50 @@ impl Server {
         ))
     }
 
-    pub fn get_pub_key1(& self, username: &str) -> Option<[u8; ENC_KEY_LEN_PUB]> {
-        self.db.get_user(username).map(|u| u.asysm_key_encryption.public_key.clone())
+    fn check_mac(& self, username: &str, mac: [u8; MAC_LEN]) -> Result<(), Box<dyn std::error::Error>> {
+
+        let result = unsafe {
+            crypto_auth_verify(
+                mac.as_ptr(),
+                username.as_bytes().as_ptr(),
+                username.as_bytes().len() as u64,
+                self.db.get_connected_user().key_communication.as_ptr(),
+            )
+        };
+
+        if result != 0 {
+            return Err(Box::new(io::Error::new(io::ErrorKind::Other, "MAC invalid")));
+        }
+
+        Ok(())
     }
 
-    pub fn get_pub_key2(& self, username: &str) -> Option<[u8; SIGN_KEY_LEN_PUB]> {
-        self.db.get_user(username).map(|u| u.asysm_key_signing.public_key.clone())
+    pub fn get_pub_key_enc(& self, username: &str, mac: [u8; MAC_LEN], username_pub_key: &str) -> Option<[u8; ENC_KEY_LEN_PUB]> {
+        // Check if the user is connected using mac
+        self.check_mac(username, mac).ok()?;
+
+        self.db.get_user(username_pub_key).map(|u| u.asysm_key_encryption.public_key.clone())
     }
 
-    pub fn send_message(&mut self, /*hash: String,*/ sender: &str, receiver: &str, delivery_time: SystemTime, filename: Vec<u8>, nonce_filename: [u8; ENC_LEN_NONCE], message: Vec<u8>, nonce_message: [u8; ENC_LEN_NONCE], signature: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn get_pub_key_sign(& self, username: &str, mac: [u8; MAC_LEN], username_pub_key: &str) -> Option<[u8; SIGN_KEY_LEN_PUB]> {
+        // Check if the user is connected using mac
+        self.check_mac(username, mac).ok()?;
 
-        // Check if the user is connected using login function
-        // if self.login(sender, &hash).is_err() {
-        //     println!("User not connected");
-        //     return Err("User not connected".into());
-        // }
+        self.db.get_user(username_pub_key).map(|u| u.asysm_key_signing.public_key.clone())
+    }
 
-        // TODO: decrypt the content of the message using session_key
+    pub fn send_message(&mut self, mac: [u8; MAC_LEN], sender: &str, receiver: &str, delivery_time: SystemTime, filename: Vec<u8>, nonce_filename: [u8; ENC_LEN_NONCE], message: Vec<u8>, nonce_message: [u8; ENC_LEN_NONCE], signature: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+        // Check if the user is connected using mac
+        self.check_mac(sender, mac)?;
 
         self.db.send_message(sender, receiver, delivery_time, filename, nonce_filename, message, nonce_message, signature)?;
 
         Ok(())
     }
 
-    pub fn get_messages(&mut self, /*hash: String,*/ username: &str) -> Result<Vec<Message>, Box<dyn std::error::Error>> {
+    pub fn get_messages(&mut self, mac: [u8; MAC_LEN], username: &str) -> Result<Vec<Message>, Box<dyn std::error::Error>> {
         // Check if the user is connected
-        // if self.login(username, &hash).is_err() {
-        //     println!("User not connected");
-        //     return Err("User not connected".into());
-        // }
-
-        // TODO: decrypt the content of the request using session_key of the user
+        self.check_mac(username, mac)?;
 
         let messages = self.db.get_messages(username)?;
 

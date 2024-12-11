@@ -1,5 +1,6 @@
 use inquire::Text;
 use std::ffi::*;
+use std::io;
 use generic_array::GenericArray;
 use generic_array::typenum::U64;
 use libsodium_sys::*;
@@ -13,6 +14,25 @@ use crate::consts::*;
 use opaque_ke::*;
 use rand::rngs::OsRng;
 use rand::RngCore;
+
+fn calculate_mac(username: &str, key_communication: Vec<u8>) -> Result<([u8; MAC_LEN]), Box<dyn std::error::Error>> {
+    let mut mac = [0u8; MAC_LEN];
+
+    let result = unsafe {
+        crypto_auth(
+            mac.as_mut_ptr(),
+            username.as_ptr(),
+            username.len() as u64,
+            key_communication.as_ptr(),
+        )
+    };
+
+    if result != 0 {
+        return Err(Box::new(io::Error::new(io::ErrorKind::Other, "MAC invalid")));
+    }
+
+    Ok(mac)
+}
 
 // encrypt priv1 and priv2 with key to get nonce1, cpriv1, nonce2, cpriv2
 fn enc_key(priv1: &Vec<u8>, priv2: &Vec<u8>, key: &Vec<u8>) -> Result<([u8; SYM_LEN_NONCE], Vec<u8>, [u8; SYM_LEN_NONCE], Vec<u8>), Box<dyn std::error::Error>> {
@@ -126,7 +146,7 @@ fn generate_asym_key(key: &Vec<u8>) -> Result<([u8; ENC_KEY_LEN_PUB], [u8; SYM_L
 }
 
 /// return connected: bool, username: String, h: String, k: Vec<u8>, pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
-pub fn register(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray<u8, U64> , [u8; ENC_KEY_LEN_PUB], [u8; ENC_KEY_LEN_PRIV], [u8; SIGN_KEY_LEN_PUB], [u8; SIGN_KEY_LEN_PRIV]), Box<dyn std::error::Error>> {
+pub fn register(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray<u8, U64>, [u8; MAC_LEN], [u8; ENC_KEY_LEN_PUB], [u8; ENC_KEY_LEN_PRIV], [u8; SIGN_KEY_LEN_PUB], [u8; SIGN_KEY_LEN_PRIV]), Box<dyn std::error::Error>> {
     let username = Text::new("Enter your username:").prompt()?;
     let password = Text::new("Enter your password:").prompt()?;
     let password_confirm = Text::new("Confirm your password:").prompt()?;
@@ -167,13 +187,14 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray
     let fake_key = [0u8; SIGN_KEY_LEN_PRIV];
     let fake_enc_key = [0u8; ENC_KEY_LEN_PRIV];
     let fake_generic_array = GenericArray::default();
+    let fake_mac = [0u8; MAC_LEN];
 
     // TODO remove pub2
-    Ok((false, "".to_string(), vec![], fake_generic_array , pub1, fake_enc_key, pub2, fake_key))
+    Ok((false, "".to_string(), vec![], fake_generic_array, fake_mac, pub1, fake_enc_key, pub2, fake_key))
 }
 
 /// return connected: bool, username: String, h: String, k: Vec<u8>, pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
-pub fn login(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray<u8, U64> , [u8; ENC_KEY_LEN_PUB], [u8; ENC_KEY_LEN_PRIV], [u8; SIGN_KEY_LEN_PUB], [u8; SIGN_KEY_LEN_PRIV]), Box<dyn std::error::Error>> {
+pub fn login(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray<u8, U64>, [u8; MAC_LEN], [u8; ENC_KEY_LEN_PUB], [u8; ENC_KEY_LEN_PRIV], [u8; SIGN_KEY_LEN_PUB], [u8; SIGN_KEY_LEN_PRIV]), Box<dyn std::error::Error>> {
     let username = Text::new("Enter your username:").prompt()?;
     let password = Text::new("Enter your password:").prompt()?;
 
@@ -200,7 +221,10 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray<u8
     // Recorver the private key
     let (priv1, priv2) = dec_key(&cpriv1, &cpriv2, &key, nonce1, nonce2)?;
 
-    Ok((true, username, key.to_vec(), key_communication, pub1, priv1, pub2, priv2))
+    // Calculate the mac
+    let mac = calculate_mac(&username, key_communication.to_vec())?;
+
+    Ok((true, username, key.to_vec(), key_communication, mac, pub1, priv1, pub2, priv2))
 }
 
 pub fn change_password(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {

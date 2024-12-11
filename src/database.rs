@@ -4,6 +4,7 @@ use num_bigint::BigUint;
 use lhtlp::LHTLP;
 use opaque_ke::*;
 use generic_array::GenericArray;
+use generic_array::typenum::U64;
 
 use crate::consts::*;
 use crate::server::DefaultCipherSuite;
@@ -42,15 +43,37 @@ pub struct User {
     pub(crate) receive_messages: Vec<Message>,
 }
 
+pub struct ConnectedUser{
+    pub(crate) username: String,
+    pub(crate) key_communication: GenericArray<u8, U64>,
+}
+
 pub struct Database {
     users: Vec<User>,
+    connected_user: ConnectedUser,
 }
 
 impl Database {
     pub fn new() -> Self {
         Database {
             users: Vec::new(),
+            connected_user: ConnectedUser {
+                username: String::new(),
+                key_communication: GenericArray::default(),
+            },
         }
+    }
+
+    pub fn connect_user(&mut self, username: String, key_communication: GenericArray<u8, U64>) -> Result<(), Box<dyn std::error::Error>> {
+        self.connected_user = ConnectedUser {
+            username,
+            key_communication,
+        };
+        Ok(())
+    }
+
+    pub fn get_connected_user(&self) -> &ConnectedUser {
+        &self.connected_user
     }
 
     pub fn create_user(

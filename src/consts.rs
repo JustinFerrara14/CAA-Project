@@ -10,6 +10,9 @@ pub(crate) const OPSLIMIT: c_ulonglong = crypto_pwhash_OPSLIMIT_INTERACTIVE as c
 pub(crate) const MEMLIMIT: usize = crypto_pwhash_MEMLIMIT_INTERACTIVE as usize;
 pub(crate) const ALG: c_int = crypto_pwhash_ALG_ARGON2ID13 as c_int;
 
+/// Const for mac
+pub(crate) const MAC_LEN: usize = crypto_auth_BYTES as usize;
+
 /// Const for sym encryption
 pub(crate) const SYM_KEY_LEN: usize = crypto_secretbox_KEYBYTES as usize;
 pub(crate) const SYM_LEN_NONCE: usize = crypto_secretbox_NONCEBYTES as usize;

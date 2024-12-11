@@ -9,20 +9,20 @@ Le client dispose uniquement de son nom d'utilisateur et son mot de passe.
 ## Contraintes serveur
 
 ## Algorithmes utilisés
-- OPAQUE pour dériver une clé symétrique du mot de passe et établir une connexion sécurisée avec le serveur
-- AES-GCM pour le chiffrement des clés asymétriques.
-- ECIES pour le chiffrement des messages
-- EdDSA pour la signature des messages
+- OPAQUE pour obtenir 2 clé symétrique. Une dérivée du mot de passe nommée `key` et une partagée avec le serveur pour établir une communication sécurisée nommée `key_communication`
+- XSalsa20 avec Poly1305 comme mac pour le chiffrement symétrique des clés asymétriques. Cette combinaison d'algorithme sera nommée `SymEnc` ou `SymDec`
+- X25519, XSalsa20 et Poly1305 pour le chiffrement hybride et la signature des certaines parties du message. Cette combinaison d'algorithme sera nommée `HybEnc` ou `HybDec`
+- EdDSA pour la signature du message complet.
 
 ## Gestion des clés
 - Chaque utilisateur possède un mot de passe.
 - Chaque utilisateur possède 1 clé asymétrique de 256 bits pour le chiffrement des messages (priv1, pub1).
 - Chaque utilisateur possède 1 clé asymétrique de 256 bits pour la signature des messages (priv2, pub2).
-- Chaque utilisateur possède 1 paire de clés asymétrique de 256 bits pour la communication avec le serveur (priv3, pub3).
+- Chaque utilisateur possède 1 clé symétrique de 256 bits pour la communication avec le serveur, cette clés est donnée à la fin de OPAQUE.
 
 ## Tailles des clés
 - La sortie de OPAQUE pour la clé symétrique est de 768 bits, avec un sel de 128 bits aléatoire, pour pouvoir générer un hash de 512 bits et une clé de chiffrement de 256 bits.
-- La deuxième sortie de OPAQUE est une paire de clé asymétrique de ??????? bits.
+- La deuxième sortie de OPAQUE est une paire de clé symétrique de ??????? bits.
 - AES-GCM utilise une clé de 256 bits, avec un sel de 96 bits aléatoire.
 - ECIES utilise une des paires de clés asymétriques de 256 bits, avec r aléatoire.
 - EdDSA utilise une des paires clés asymétriques de 256 bits. ?????????
@@ -39,13 +39,23 @@ Le client dispose uniquement de son nom d'utilisateur et son mot de passe.
 - client : ordinateur, machine que l'utilisateur utilise
 - serveur : serveur
 ## Création de compte
-- L'utilisateur renseigne un nom d'utilisateur et un mot de passe.
-- Le client vérifie que le mot de passe est assez fort, si ce n'est pas le cas, il demande un nouveau mot de passe.
-- Le client génère un sel aléatoire de 128 bits.
-- Le client calcule :
+- L'utilisateur renseigne un nom d'utilisateur et 2 mot de passe identiques.
+- Le client vérifie que le premier mot de passe est le même que le second, si ce n'est pas le cas, il redemande un mot de passe.
+- Le client fait un échange OPAQUE avec le serveur :
 
 $$
-(k, h) = Argon2id(password, salt)
+Client:
+client\_registration\_start\_result = OPAQUE_{ClientRegistration}(password)
+$$
+$$
+Server:
+server\_registration\_start\_result  = OPAQUE_{ServerRegistration}(username, client\_registration\_start\_result)
+$$
+$$
+Client: client\_registration\_finish\_result = OPAQUE_{ClientRegistrationFinish}(password, server\_registration\_start\_result)
+$$
+$$
+Client: key = client\_registration\_finish\_result.export\_key
 $$
 
 - Le client génère 2 clés asymétriques de 256 bits 
@@ -61,43 +71,59 @@ $$
 $$
 pub2 = priv2*G
 $$
-- Le client chiffre priv1 et priv2 avec AES-GCM en utilisant sa clé k, ce qui donne : ?????
+- Le client chiffre priv1 et priv2 avec `SymEnc` en utilisant sa clé k, ce qui donne :
 $$
 IV1 = random[0..95]
 $$
 $$
-cpriv1||tag1 = AES\_GCM_k(IV1, priv1)
+cpriv1||tag1 = SymEnc_{key}(IV1, priv1)
 $$
 $$
 IV2 = random[0..95]
 $$$$
-cpriv2||tag2 = AES\_GCM_k(IV2, priv2)
+cpriv2||tag2 = SymEnc_{key}(IV2, priv2)
 $$
-- Le client envoie au serveur:
-	- nom d'utilisateur
-	- sel
-	- h
-	- cpriv1 || tag1 || IV1
-	- pub1
-	- cpriv2 || tag2 || IV2
-	- pub2
-
+- Le client termine l'échange OPAQUE en envoyant également les clés asymétriques : 
+$$
+Server:
+password\_file  = OPAQUE_{ServerRegistrationFinish}(username, client\_registration\_finish\_result, cpriv1 || tag1 || IV1, pub1, cpriv2 || tag2 || IV2, pub2)
+$$
+- Le serveur associe `password_file` avec le username et les clés asymétrique uniquement si l'échange OPAQUE a réussi.
 ## Login
 - Le client renseigne son nom d'utilisateur et son mot de passe.
-- Le client envoie son nom d'utilisateur au serveur et le serveur lui renvoie le sel associé.
-- Le client calcule :
+- Le client fait un échange OPAQUE avec le serveur :
 $$
-(k', h') = Argon2id(password, salt)
+Client:
+client\_login\_start\_result = OPAQUE_{ClientLogin}(password)
 $$
-- Le client envoie h' au serveur.
-- Le serveur compare h' avec h, si c'est les même il continue. Sinon l'authentififaction à échoué.
+- Le serveur va chercher le password file en lien avec le username
+$$
+Server:
+server\_login\_start\_result  = OPAQUE_{ServerLogin}(username, client\_login\_start\_result, password\_file)
+$$
+$$
+Client: client\_login\_finish\_result = OPAQUE_{ClientLoginFinish}(password, server\_Login\_start\_result)
+$$
+$$
+Client: key = client\_login\_finish\_result.sessio\_key
+$$
+$$
+Client: key\_communication = client\_login\_finish\_result.session\_key
+$$
+$$
+Server:
+server\_login\_finish\_result = OPAQUE_{ServerLoginFinish}(username, client\_login\_finish\_result)
+$$
+$$
+Server: key\_communication = server\_login\_finish\_result.session\_key
+$$
 - Le serveur renvoie (cpriv1, pub1, cpriv2, pub2) au client.
-- Le client déchiffre cpriv1 et cpriv2 avec AES-GCM :
+- Le client déchiffre cpriv1 et cpriv2 avec SymDec :
 $$
-priv1 = AES\_GCM_k(cpriv1||tag1||IV1)
+priv1 = SymDec_{key}(cpriv1||tag1||IV1)
 $$
 $$
-priv2 = AES\_GCM_k(cpriv2||tag2||IV2)
+priv2 = SymDec_{key}(cpriv2||tag2||IV2)
 $$
 - Le client contrôle que tag1 et tag2 sont correct
 - Le client contrôle cette égalité pour s'assurer que la clé publique n'a pas été modifiée :
@@ -106,13 +132,14 @@ priv1 * G = pub1
 $$
 ## Changement de mot de passe
 - Le client fait un login normal.
-- Le client possède donc (priv1, pub1, priv2, pub2, k, h).
+- Le client possède donc (priv1, pub1, priv2, pub2, key, key_communication).
 - L'utilisateur renseigne son nouveau mot de passe.
-- Le client génère un nouveau sel aléatoire de 128 bits.
-- Le client calcule : $$
-(newK, newH) = Argon2id(newPassword, newSalt)
+- Le client fait un échange OPAQUE comme dans registration avec le serveur :
 $$
-- Le client chiffre priv1 et priv2 avec AES-GCM et newK :
+newKey = OPAQUE_{register}
+$$
+> On notera que comme l'utilisateur existe déjà, le serveur vérifie que l'utilisateur est bien en possession de la clé key_communiction en vérifiant ?????.
+- Le client chiffre priv1 et priv2 avec AES-GCM et newKey :
 $$
 IV1 = random[0..95]
 $$$$
@@ -122,56 +149,74 @@ IV2 = random[0..95]
 $$$$
 cpriv2||tag2 = AES\_GCM_{newK}(IV2, priv2)
 $$
-- Le client envoie au server :
-	- nom d'utilisateur
-	- h
-	- nouveau sel
-	- newH
-	- pub1
-	- pub2
-	- cpriv1
-	- cpriv2
-
+- Le client envoie au server les nouvelles clés comme dans la partie registration. ????
 
 ## Envoi de Message
 - Le client fait un login normal.
-- Le client possède donc (priv1, pub1, priv2, pub2, k, h).
-- Le client demande la clé publique du destinataire du Message au serveur pub1Dest.
-- Le client utilise ECIES pour chiffrer le Message en utilisant la clé publique du destinataire :
+- Le client possède donc (priv1, pub1, priv2, pub2, key, key_communication
+- L'utilisateur rentre le destinataire, le fichier à envoyer et le timestamp auquel le destinataire pourra l'ouvrir.
+- Le client demande la clé publique du destinataire du Message au serveur en envoyant son username et le MAC associé généré avec la clé key_communication
+- Le serveur vérifie le MAC et renvoie la clé publique correspondante pub1Dest.
+- Le client utilise `HybEnc` pour chiffrer le fichier et le nom de fichier en utilisant la clé publique du destinataire :
 $$
-r = random
+nonceFilename = random[???]
 $$
 $$
-R\ ||\ c\ ||\ T = ECIES(pub1Dest, Message, r)
+nonceFile = random[???]
+$$
+$$
+cipher1 = HybEnc(pub1Dest, priv1, filename, nonceFilename)
+$$
+$$
+cipher2 = HybEnc(pub1Dest, priv1, file, nonceFile)
 $$
 - Le client signe le Message complet et la date autorisée d'ouverture du Message avec priv2
+
 $$
-k = random
-$$
-$$
-(r,s) = EcDSA_{priv2}(priv2, R||c||T||date)
+signature = EdDSA_{priv2}(sender, receiver, timestamp, nonceFilename, filename, file)
 $$
 - Le client vérifie si la signature est correcte
 - Le client envoie au serveur :
-$$
-R\ ||\ c\ ||\ T\ ||\ date\ ||\ r\ ||\ s
-$$
+	- sender
+	- MAC(sender)
+	- receiver
+	- timestamp
+	- nonceFilename
+	- cipherFilename
+	- nonceFile
+	- cipherFile
+- Le serveur accepte de recevoir le message si le MAC est correct.
 
 ## Réception de Message
 - Le client fait un login normal.
-- Le client possède donc (priv1, pub1, priv2, pub2, k, h).
-- Le client reçoit du serveur :
+- Le client possède donc (priv1, pub1, priv2, pub2, key, key_communication)
+- Le client fait une demande pour recevoir ses message en envoyant son username avec le MAC :
+ $$
+auth = MAC_{key\_communication}(username)
 $$
-c\ ||\ T\ ||\ date\ ||\ r\ ||\ s
+- Le serveur vérifie si auth est juste, si c'est le cas, il renvoie tous les message au destinataire de la manière suivante:
+	- Si le timestamp du message est dans le passé alors le serveur envoie :
 $$
-- Quand la date est atteinte, le client reçoit du serveur :
+sender, receiver, timestamp, nonceFilename, cipherFilename, nonceFile, cipherFile
 $$
-R\ ||\ c\ ||\ T\ ||\ date\ ||\ r\ ||\ s
+	- Si le timestamp est dans le futur, le serveur envoie tout mais met `nonceFile` à 0:
 $$
+sender, receiver, timestamp, nonceFilename, cipherFilename, 0, cipherFile
+$$
+- Le client reçoit du serveur le message.
 - Le client vérifie que la signature du Message est correcte
-- Le client déchiffre le Message m :
 $$
-m = ECIES(priv1, R||c||T)
+signature' = EdDSA_{pubSender}(sender, receiver, timestamp, nonceFilename, filename, file)
+$$
+$$
+signature = siganture'
+$$
+- Le client check si le nonceFile vaut 0:
+	- si c'est le cas le client propose à l'utilisateur de déchiffrer localement
+	- sinon le client écrit sur le disque le fichier chiffré
+- Si le nonceFile ne vaut pas 0, le client déchiffre le Message m :
+$$
+m = HybDec(priv1, pubSender) ????????????
 $$
 ## Types d'adversaires
 - **Adversaires Actifs** :   

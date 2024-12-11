@@ -103,7 +103,7 @@ fn solve_puzzle(m: &Message) -> Result<[u8; ENC_LEN_NONCE], Box<dyn std::error::
 
 pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
     let username = usr.get_username();
-    let messages = srv.get_messages(username);
+    let messages = srv.get_messages(usr.get_mac().clone(), username)?;
 
     println!("Messages received");
 
@@ -113,10 +113,10 @@ pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
     std::fs::create_dir_all(&path).map_err(|e| format!("Error creating directory: {}", e))?;
 
     // Save the messages in the directory
-    for (i, m) in messages?.iter().enumerate() {
+    for (i, m) in messages.iter().enumerate() {
 
         // Check signature: filename, file, sender, recipient, timestamp
-        let pub_sign_key_sender = srv.get_pub_key2(&m.sender).unwrap();
+        let pub_sign_key_sender = srv.get_pub_key_sign(usr.get_username(), usr.get_mac().clone(), &m.sender).unwrap();
         match check_signature(m, &pub_sign_key_sender) {
             Ok(_) => (),
             Err(e) => {
@@ -126,7 +126,7 @@ pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
         }
 
         // Decrypt the filename
-        let pub_enc_key_sender = srv.get_pub_key1(&m.sender).unwrap();
+        let pub_enc_key_sender = srv.get_pub_key_enc(usr.get_username(), usr.get_mac().clone(), &m.sender).unwrap();
         let decrypted_filename = decrypt_filename(m, &pub_enc_key_sender, usr.get_priv_enc())?;
         let decrypted_filename = decrypted_filename.iter().map(|b| *b as char).collect::<String>();
 

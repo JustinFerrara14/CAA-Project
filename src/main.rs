@@ -34,9 +34,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         match result {
-            Ok((connected, username, h, k, pub1, priv1, pub2, priv2)) => {
+            Ok((connected, username, key, key_communication, mac, pub1, priv1, pub2, priv2)) => {
                 if connected {
-                    let user = UserConnected::new(connected, username, h, k, pub1, priv1, pub2, priv2);
+                    let user = UserConnected::new(connected, username, key, key_communication, mac, pub1, priv1, pub2, priv2);
 
                     println!("Connected as {}", user.get_username());
 

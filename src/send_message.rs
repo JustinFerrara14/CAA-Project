@@ -9,12 +9,12 @@ use crate::user_connected::UserConnected;
 use crate::consts::*;
 
 
-fn get_recipient_pub_key(srv: &Server) -> Result<(String, [u8; ENC_KEY_LEN_PUB]), Box<dyn std::error::Error>> {
+fn get_recipient_pub_key(srv: &Server, usr: &UserConnected) -> Result<(String, [u8; ENC_KEY_LEN_PUB]), Box<dyn std::error::Error>> {
     loop {
         let username = Text::new("Enter the username of the recipient:")
             .prompt()?;
 
-        if let Some(pub_key) = srv.get_pub_key1(&username) {
+        if let Some(pub_key) = srv.get_pub_key_enc(usr.get_username(), usr.get_mac().clone(), &username) {
             return Ok((username, pub_key));
         } else {
             println!("Recipient not found, please try again.");
@@ -172,7 +172,7 @@ pub fn sign_message(priv_key_sender: [u8; SIGN_KEY_LEN_PRIV], encrypted_filename
 pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
 
     // Get the username of the recipient
-    let (receiver, pub_key_recipient) = get_recipient_pub_key(&srv)?;
+    let (receiver, pub_key_recipient) = get_recipient_pub_key(&srv, &usr)?;
 
     // Get the path to the file
     let file_path = get_file_path()?;
@@ -198,7 +198,7 @@ pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn
 
     // Send the file to the server
     // TODO change
-    srv.send_message(usr.get_username(), &*receiver, timestamp, encrypted_filename, nonce1, encrypted_file, nonce2, signature)?;
+    srv.send_message(usr.get_mac().clone(), usr.get_username(), &*receiver, timestamp, encrypted_filename, nonce1, encrypted_file, nonce2, signature)?;
 
     println!("Message sent successfully");
 

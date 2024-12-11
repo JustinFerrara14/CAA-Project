@@ -8,6 +8,7 @@ pub struct UserConnected {
     username: String,
     key: Vec<u8>,
     key_communication: GenericArray<u8, U64>,
+    mac: [u8; MAC_LEN],
     pub1: [u8; ENC_KEY_LEN_PUB],
     priv1: [u8; ENC_KEY_LEN_PRIV],
     pub2: [u8; SIGN_KEY_LEN_PUB],
@@ -20,6 +21,7 @@ impl UserConnected {
         username: String,
         key: Vec<u8>,
         key_communication: GenericArray<u8, U64>,
+        mac: [u8; MAC_LEN],
         pub1: [u8; ENC_KEY_LEN_PUB],
         priv1: [u8; ENC_KEY_LEN_PRIV],
         pub2: [u8; SIGN_KEY_LEN_PUB],
@@ -30,6 +32,7 @@ impl UserConnected {
             username,
             key,
             key_communication,
+            mac,
             pub1,
             priv1,
             pub2,
@@ -39,6 +42,10 @@ impl UserConnected {
 
     pub fn get_username(&self) -> &str {
         &self.username
+    }
+
+    pub fn get_mac(&self) -> &[u8; MAC_LEN] {
+        &self.mac
     }
 
     pub fn get_key(&self) -> &Vec<u8> {
