@@ -159,7 +159,7 @@ impl Server {
                 mac.as_ptr(),
                 username.as_bytes().as_ptr(),
                 username.as_bytes().len() as u64,
-                self.db.get_connected_user().key_communication.as_ptr(),
+                self.db.get_connected_user(username).as_ptr(),
             )
         };
 
@@ -174,7 +174,7 @@ impl Server {
         // Check if the user is connected using mac
         self.check_mac(username, mac)?;
 
-        self.db.disconnect_user()?;
+        self.db.disconnect_user(username)?;
 
         Ok(())
     }

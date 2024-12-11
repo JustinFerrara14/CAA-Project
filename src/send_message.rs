@@ -52,7 +52,7 @@ fn get_timestamp() -> Option<SystemTime> {
                     Ok(naive_dt) => {
                         // Vérifier si la date est valide en termes de calendrier
                         if naive_dt.year() < 1970 {
-                            println!("Erreur : l'année doit être 1970 ou plus.");
+                            println!("Error : the year must be greater than 1970. Please try again.");
                             continue;
                         }
 
@@ -62,15 +62,14 @@ fn get_timestamp() -> Option<SystemTime> {
                         // Convertir en SystemTime
                         let system_time = UNIX_EPOCH + Duration::from_secs(timestamp as u64);
 
-                        println!("Date et heure valides : {}", naive_dt);
+                        println!("Date and time valid : {:?}", naive_dt);
                         return Some(system_time);
                     }
                     Err(err) => {
                         // Afficher un message d'erreur pour un format incorrect
                         println!(
-                            "Erreur : le format doit être YYYY:MM:DD HH:MM (par ex. 2024:12:08 15:30). Veuillez réessayer."
+                            "Error : the date and time must be in the format YYYY.MM.DD HH:MM (2012.12.31 14:00). Please try again."
                         );
-                        println!("Détails de l'erreur : {}", err);
                     }
                 }
             }

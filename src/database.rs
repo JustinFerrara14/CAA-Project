@@ -4,6 +4,7 @@ use lhtlp::LHTLP;
 use opaque_ke::*;
 use generic_array::GenericArray;
 use generic_array::typenum::U64;
+use std::collections::HashMap;
 
 use crate::consts::*;
 use crate::server::DefaultCipherSuite;
@@ -49,37 +50,30 @@ pub struct ConnectedUser{
 
 pub struct Database {
     users: Vec<User>,
-    connected_user: ConnectedUser,
+    connected_users: HashMap<String, GenericArray<u8, U64>>,
 }
 
 impl Database {
     pub fn new() -> Self {
         Database {
             users: Vec::new(),
-            connected_user: ConnectedUser {
-                username: String::new(),
-                key_communication: GenericArray::default(),
-            },
+            connected_users: HashMap::new(),
         }
     }
 
     pub fn connect_user(&mut self, username: String, key_communication: GenericArray<u8, U64>) -> Result<(), Box<dyn std::error::Error>> {
-        self.connected_user = ConnectedUser {
-            username,
-            key_communication,
-        };
+        self.connected_users.insert(username, key_communication);
+
         Ok(())
     }
 
-    pub fn get_connected_user(&self) -> &ConnectedUser {
-        &self.connected_user
+    pub fn get_connected_user(&self, username: &str) -> GenericArray<u8, U64> {
+        self.connected_users.get(username).cloned().unwrap_or(GenericArray::default())
     }
 
-    pub fn disconnect_user(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.connected_user = ConnectedUser {
-            username: String::new(),
-            key_communication: GenericArray::default(),
-        };
+    pub fn disconnect_user(&mut self, username: &str) -> Result<(), Box<dyn std::error::Error>> {
+        self.connected_users.remove(username);
+
         Ok(())
     }
 

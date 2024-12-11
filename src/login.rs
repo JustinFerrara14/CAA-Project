@@ -224,7 +224,6 @@ pub fn login(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray<u8
     Ok((true, username, key.to_vec(), key_communication, mac, pub1, priv1, pub2, priv2))
 }
 
-// The mac verifiaction here is useless beacause the server can only manage 1 connection at a time
 pub fn logout(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
     srv.logout(&usr.get_username(), usr.get_mac().clone())?;
     Ok(())
