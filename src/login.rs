@@ -171,6 +171,11 @@ pub fn register(srv: &mut Server) -> Result<(bool, String, Vec<u8>, GenericArray
     let key = client_registration_finish_result.export_key.clone();
     let key: Vec<u8> = key.to_vec();
 
+    // Check if key has the minimum length
+    if key.len() < HASH_LEN_KEY {
+        return Err("Error in key generation".into());
+    }
+
     // troncate the key to HASH_LEN_KEY
     let key = key[..HASH_LEN_KEY].to_vec();
 

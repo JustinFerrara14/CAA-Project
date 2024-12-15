@@ -1,0 +1,54 @@
+@startuml
+actor User
+participant Client
+participant Server
+
+== Réception de Message ==
+User -> Client: Fournir nom d'utilisateur et mot de passe
+
+Client -> Server: Login normal (OPAQUE_ClientLogin)
+Client -> Client: Possède priv1, pub1, priv2, pub2, key, key_communication
+Server -> Server: Possède key_communication
+
+Client -> Client: auth = MAC_key_communication(username)
+
+Client -> Server: Demande des messages avec username et auth
+Server -> Server: auth' = MAC_key_communication(username)
+alt MAC valide (auth == auth')
+    Server -> Client: Renvoie les messages selon timestamp = vec(Message)
+    loop Pour chaque message dans vec(Message)
+        Server -> Client: sender, receiver, timestamp, nonceFilename, cipherFilename, nonceFile, cipherFile, timePuzzle
+    end
+else MAC invalide (auth != auth')
+    Server -> Client: Refuse la demande
+end
+
+loop Pour chaque message reçu
+    Client -> Client: Vérifie la signature du message
+    Client -> Client: signature' = EdDSA_pubSender(sender, receiver, timestamp, nonceFilename, filename, file)
+    Client -> Client: Vérifie signature' = message.signature
+    alt signature' != message.signature
+        Client -> Client: Lance une erreur et passe au message suivant
+    end
+
+    Client -> Client: Check nonceFile == 0
+    alt nonceFile == 0
+        Client -> User: Propose déchiffrement local avec time lock puzzle
+
+        alt User accepte
+            Client -> Client: Résoud le time lock puzzle pour retrouver nonceFile
+            Client -> Client: nonceFile = SolveTimePuzzle(timePuzzle)
+        else User refuse
+            Client -> Client: Le nonceFile reste inconnu
+        end
+    end
+
+    alt nonceFile != 0
+        Client -> Client: Déchiffre le message
+        Client -> Client: m = HybDec(c, priv1, pubSender)
+        Client -> Client: Écrit m sur le disque
+    else nonceFile == 0
+        Client -> Client: Écrit le message chiffré sur le disque
+    end
+end
+@enduml

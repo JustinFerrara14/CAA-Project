@@ -1,0 +1,37 @@
+@startuml
+actor User
+participant Client
+participant Server
+
+== Envoi de Message ==
+User -> Client: Fournir nom d'utilisateur et mot de passe
+
+Client -> Server: Login normal (OPAQUE\_ClientLogin)
+Client -> Client: Possède priv1, pub1, priv2, pub2, key, key_communication
+Server -> Server: Possède key_communication
+
+User -> Client: Fournir destinataire, fichier et timestamp
+
+Client -> Client: auth = MAC_key_communication(username)
+
+Client -> Server: Demande pub1Dest avec username et auth
+Server -> Server: auth' = MAC_key_communication(username)
+alt MAC valide (auth == auth')
+    Server -> Client: pub1Dest
+else MAC invalide (auth != auth')
+    Server -> Client: Refuse la demande
+end
+
+Client -> Client: Chiffre le fichier et le nom de fichier
+
+Client -> Client: Signe le message
+
+Client -> Server: sender, auth, receiver, timestamp, nonceFilename, cipherFilename, nonceFile, cipherFile
+
+Server -> Server: auth' = MAC_key_communication(username)
+alt MAC valide (auth == auth')
+    Server -> Client: Accepte le message
+else MAC invalide (auth != auth')
+    Server -> Client: Refuse le message
+end
+@enduml

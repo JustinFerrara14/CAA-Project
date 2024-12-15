@@ -1,14 +1,8 @@
 use libsodium_sys::*;
 use std::ffi::*;
 
-/// Const for password hashing
-pub(crate) const HASH_LEN: usize = 96;
-pub(crate) const HASH_LEN_HASH: usize = 64;
+/// Const for password OPAQUE
 pub(crate) const HASH_LEN_KEY: usize = 32;
-pub(crate) const SALT_LEN: usize = crypto_pwhash_SALTBYTES as usize;
-pub(crate) const OPSLIMIT: c_ulonglong = crypto_pwhash_OPSLIMIT_INTERACTIVE as c_ulonglong;
-pub(crate) const MEMLIMIT: usize = crypto_pwhash_MEMLIMIT_INTERACTIVE as usize;
-pub(crate) const ALG: c_int = crypto_pwhash_ALG_ARGON2ID13 as c_int;
 
 /// Const for mac
 pub(crate) const MAC_LEN: usize = crypto_auth_BYTES as usize;

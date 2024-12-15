@@ -6,6 +6,7 @@ use chrono::{DateTime, Local};
 use lhtlp::LHTLP;
 use num_bigint::BigUint;
 use num_traits::ops::bytes::ToBytes;
+use std::thread;
 
 
 use crate::server::Server;
@@ -83,9 +84,33 @@ fn check_signature (m: &Message, pub_sign_key_sender: &[u8; SIGN_KEY_LEN_PUB]) -
 
 // return the calculated solution [u8; ENC_LEN_NONCE]
 fn solve_puzzle(m: &Message) -> Result<[u8; ENC_LEN_NONCE], Box<dyn std::error::Error>> {
-    let solution1 = m.puzzle_struct.solve(m.puzzles[0].clone());
-    let solution2 =  m.puzzle_struct.solve(m.puzzles[1].clone());
-    let solution3 =  m.puzzle_struct.solve(m.puzzles[2].clone());
+    // let solution1 = m.puzzle_struct.solve(m.puzzles[0].clone());
+    // let solution2 =  m.puzzle_struct.solve(m.puzzles[1].clone());
+    // let solution3 =  m.puzzle_struct.solve(m.puzzles[2].clone());
+
+    let handle1 = thread::spawn({
+        let puzzle = m.puzzles[0].clone();
+        let puzzle_struct = m.puzzle_struct.clone();
+        move || puzzle_struct.solve(puzzle)
+    });
+
+    let handle2 = thread::spawn({
+        let puzzle = m.puzzles[1].clone();
+        let puzzle_struct = m.puzzle_struct.clone();
+        move || puzzle_struct.solve(puzzle)
+    });
+
+    let handle3 = thread::spawn({
+        let puzzle = m.puzzles[2].clone();
+        let puzzle_struct = m.puzzle_struct.clone();
+        move || puzzle_struct.solve(puzzle)
+    });
+
+    // Wait for the threads to finish
+    let solution1 = handle1.join().map_err(|_| "Error solving puzzle thread 1")?;
+    let solution2 = handle2.join().map_err(|_| "Error solving puzzle thread 2")?;
+    let solution3 = handle3.join().map_err(|_| "Error solving puzzle thread 3")?;
+
 
     let mut nonce_message_calc = [0u8; ENC_LEN_NONCE];
 

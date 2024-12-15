@@ -1,0 +1,30 @@
+@startuml
+actor User
+participant Client
+participant Server
+
+== Création de compte ==
+User -> Client: Fournir nom d'utilisateur et 2 mots de passe
+alt Mots de passe différents
+    Client -> User: Redemander les mots de passe
+    User -> Client: Fournir les mots de passe
+end
+
+Client -> Server: username, client_registration_start_result = OPAQUE_ClientRegistration(password)
+Server -> Server: OPAQUE_ServerRegistration(username, client_registration_start_result)
+Server --> Client: server_registration_start_result
+Client -> Client: OPAQUE_ClientRegistrationFinish(password, server_registration_start_result)
+Client -> Client: key = client_registration_finish_result.export_key
+
+Client -> Client: Génération de 2 paires de clés asymétriques (priv1, pub1, priv2, pub2)
+
+Client -> Client: Chiffrement des clés privées
+
+Client -> Server: client_registration_finish_result, cpriv1, pub1, cpriv2, pub2
+alt Échange OPAQUE réussi
+    Server -> Server: password_file = OPAQUE_ServerRegistrationFinish(client_registration_finish_result, cpriv1, pub1, cpriv2, pub2)
+    Server -> Server: Associe password_file avec username
+else Username déjà existant
+    Server -> Client: Refuse l'enregistrement
+end
+@enduml

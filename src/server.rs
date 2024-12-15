@@ -20,7 +20,6 @@ impl CipherSuite for DefaultCipherSuite {
     type OprfCs = opaque_ke::Ristretto255;
     type KeGroup = opaque_ke::Ristretto255;
     type KeyExchange = opaque_ke::key_exchange::tripledh::TripleDh;
-
     type Ksf = Argon2<'static>;
 }
 
@@ -67,7 +66,8 @@ impl Server {
         let password_file_bytes = password_file.serialize();
 
         if self.db.get_user(&username).is_some() {
-            // Do nothing if the user already exists
+            // Error if the user already exists
+            return Err(Box::new(io::Error::new(io::ErrorKind::Other, "User already exists")));
         } else {
             self.db.create_user(
                 username.parse().unwrap(),
@@ -223,7 +223,7 @@ impl Server {
                 // time in seconds
                 let time = m.delivery_time.duration_since(now).unwrap().as_secs();
 
-                let complexity = time * TIME_HARDNESS / 3;
+                let complexity = time * TIME_HARDNESS;
 
                 let lhtlp = LHTLP::setup(LAMBDA, BigUint::from(complexity));
 
@@ -242,8 +242,6 @@ impl Server {
                 // println!("Time needed to take in seconds: {:?}", time);
                 //
                 // let start_time = Instant::now();
-                // let solution = lhtlp.solve(puzzle1.clone());
-                // let solution = lhtlp.solve(puzzle1.clone());
                 // let solution = lhtlp.solve(puzzle1.clone());
                 // let duration = start_time.elapsed();
                 //
