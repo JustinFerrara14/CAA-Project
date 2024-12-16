@@ -1,11 +1,12 @@
 # CAA-Project Ferrara Justin
 
 ## Niveau de sécurité choisi
-Dans ce projet, j'ai choisi de partir sur un niveau de sécurité de 256 bits pour la cryptographie symétriques:
+Dans ce projet, j'ai choisi de partir sur un niveau de sécurité de 256 bits pour la cryptographie symétriques. J'ai ensuite utilisé [keylength.com](https://www.keylength.com/en/4/) avec les recommandations du NIST de 2020 pour faire la liste suivante :
 - cryptographie symétrique: 256 bits
 - Hash : 512 bits
 - Taille clés pour courbes elliptiques : 512 bits
 
+>Note: comme Libsoduim ne prend pas en charge toutes les tailles de clés possible, certaine taille de clés sont un peu plus petite dans l'implémentation. Pour plus d'information pour les tailles de clés utilisées dans l'implémentation, voire le fichier [consts.rs](./src/consts.rs).
 ## Contraintes client
 - Le client dispose uniquement de son nom d'utilisateur et son mot de passe.
 - Le client doit pouvoir changer son mot de passe

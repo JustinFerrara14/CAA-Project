@@ -187,7 +187,7 @@ pub fn register(srv: &mut Server) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// return connected: username: String, h: String, k: Vec<u8>, pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
+/// return connected: username: String, key: Vec<u8>, key_communication: Vec<u8>, mac: [u8; MAC_LEN], pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
 pub fn login(srv: &mut Server) -> Result<(String, Vec<u8>, GenericArray<u8, U64>, [u8; MAC_LEN], [u8; ENC_KEY_LEN_PUB], [u8; ENC_KEY_LEN_PRIV], [u8; SIGN_KEY_LEN_PUB], [u8; SIGN_KEY_LEN_PRIV]), Box<dyn std::error::Error>> {
     let username = Text::new("Enter your username:").prompt()?;
     let password = Text::new("Enter your password:").prompt()?;
