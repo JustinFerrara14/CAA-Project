@@ -84,22 +84,22 @@ fn check_signature (m: &Message, pub_sign_key_sender: &[u8; SIGN_KEY_LEN_PUB]) -
 
 // return the calculated solution [u8; ENC_LEN_NONCE]
 fn solve_puzzle(m: &Message) -> Result<[u8; ENC_LEN_NONCE], Box<dyn std::error::Error>> {
-    // let solution1 = m.puzzle_struct.solve(m.puzzles[0].clone());
-    // let solution2 =  m.puzzle_struct.solve(m.puzzles[1].clone());
-    // let solution3 =  m.puzzle_struct.solve(m.puzzles[2].clone());
 
+    // Solve the puzzles in parallel, thread 1
     let handle1 = thread::spawn({
         let puzzle = m.puzzles[0].clone();
         let puzzle_struct = m.puzzle_struct.clone();
         move || puzzle_struct.solve(puzzle)
     });
 
+    // thread 2
     let handle2 = thread::spawn({
         let puzzle = m.puzzles[1].clone();
         let puzzle_struct = m.puzzle_struct.clone();
         move || puzzle_struct.solve(puzzle)
     });
 
+    // thread 3
     let handle3 = thread::spawn({
         let puzzle = m.puzzles[2].clone();
         let puzzle_struct = m.puzzle_struct.clone();

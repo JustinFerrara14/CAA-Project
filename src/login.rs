@@ -172,12 +172,12 @@ pub fn register(srv: &mut Server) -> Result<(), Box<dyn std::error::Error>> {
     let key: Vec<u8> = key.to_vec();
 
     // Check if key has the minimum length
-    if key.len() < HASH_LEN_KEY {
+    if key.len() < SYM_KEY_LEN {
         return Err("Error in key generation".into());
     }
 
-    // troncate the key to HASH_LEN_KEY
-    let key = key[..HASH_LEN_KEY].to_vec();
+    // troncate the key to SYM_KEY_LEN
+    let key = key[..SYM_KEY_LEN].to_vec();
 
     // generate asym keys
     let (pub1, nonce1, cpriv1, pub2, nonce2, cpriv2) = generate_asym_key(&key)?;
@@ -207,7 +207,7 @@ pub fn login(srv: &mut Server) -> Result<(String, Vec<u8>, GenericArray<u8, U64>
     let key = client_login_finish_result.export_key.clone();
     let key: Vec<u8> = key.to_vec();
     // troncate the key to HASH_LEN_KEY
-    let key = key[..HASH_LEN_KEY].to_vec();
+    let key = key[..SYM_KEY_LEN].to_vec();
     let key_communication = client_login_finish_result.session_key.clone();
 
     let (pub1, cpriv1, nonce1, pub2, cpriv2, nonce2) = srv.server_login_finish(&username, server_login_start_result, client_login_finish_result)?;

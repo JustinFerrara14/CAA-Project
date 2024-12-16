@@ -1,8 +1,6 @@
 use libsodium_sys::*;
 use std::ffi::*;
 
-/// Const for password OPAQUE
-pub(crate) const HASH_LEN_KEY: usize = 32;
 
 /// Const for mac
 pub(crate) const MAC_LEN: usize = crypto_auth_BYTES as usize;
