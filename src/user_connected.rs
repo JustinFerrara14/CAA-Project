@@ -4,7 +4,6 @@ use generic_array::typenum::U64;
 use crate::consts::*;
 
 pub struct UserConnected {
-    connected: bool,
     username: String,
     key: Vec<u8>,
     key_communication: GenericArray<u8, U64>,
@@ -17,7 +16,6 @@ pub struct UserConnected {
 
 impl UserConnected {
     pub fn new(
-        connected: bool,
         username: String,
         key: Vec<u8>,
         key_communication: GenericArray<u8, U64>,
@@ -28,7 +26,6 @@ impl UserConnected {
         priv2: [u8; SIGN_KEY_LEN_PRIV],
     ) -> Self {
         UserConnected {
-            connected,
             username,
             key,
             key_communication,

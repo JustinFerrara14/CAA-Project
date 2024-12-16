@@ -38,8 +38,8 @@ Dans ce projet, j'ai choisi de partir sur un niveau de sécurité de 256 bits po
 
 ## Tailles des clés
 ### OPAQUE
-- La sortie de OPAQUE pour la clé `key` est de 256 bits ???
-- La deuxième sortie de OPAQUE pour la clé `key_communication` est de 256 bits ???
+- La sortie de OPAQUE pour la clé `key` est de 512 bits
+- La deuxième sortie de OPAQUE pour la clé `key_communication` est de 512 bits
 ### XSalsa20 et Poly1305 (SymEnc / SymDec)
 - La clé symétrique de `XSalsa20` est de 256 bits
 - Le nonce de `XSalsa20` est des 192 bits
