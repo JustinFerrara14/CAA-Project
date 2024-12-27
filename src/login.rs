@@ -1,4 +1,4 @@
-use inquire::Text;
+use inquire::{Text, Password, PasswordDisplayMode};
 use std::io;
 use generic_array::GenericArray;
 use generic_array::typenum::U64;
@@ -145,14 +145,7 @@ fn generate_asym_key(key: &Vec<u8>) -> Result<([u8; ENC_KEY_LEN_PUB], [u8; SYM_L
 
 pub fn register(srv: &mut Server) -> Result<(), Box<dyn std::error::Error>> {
     let username = Text::new("Enter your username:").prompt()?;
-    let password = Text::new("Enter your password:").prompt()?;
-    let password_confirm = Text::new("Confirm your password:").prompt()?;
-
-    if password != password_confirm {
-        println!("Passwords do not match");
-        // return error
-        return Err("Passwords do not match".into());
-    }
+    let password = Password::new("Enter your password:").with_display_mode(PasswordDisplayMode::Masked).prompt()?;
 
     // Generate key with OPAQUE
     let mut client_rng = OsRng;
@@ -190,7 +183,7 @@ pub fn register(srv: &mut Server) -> Result<(), Box<dyn std::error::Error>> {
 /// return connected: username: String, key: Vec<u8>, key_communication: Vec<u8>, mac: [u8; MAC_LEN], pub1: PublicKey, priv1: SecretKey, pub2: PublicKey, priv2: SecretKey,
 pub fn login(srv: &mut Server) -> Result<(String, Vec<u8>, GenericArray<u8, U64>, [u8; MAC_LEN], [u8; ENC_KEY_LEN_PUB], [u8; ENC_KEY_LEN_PRIV], [u8; SIGN_KEY_LEN_PUB], [u8; SIGN_KEY_LEN_PRIV]), Box<dyn std::error::Error>> {
     let username = Text::new("Enter your username:").prompt()?;
-    let password = Text::new("Enter your password:").prompt()?;
+    let password = Password::new("Enter your password:").without_confirmation().with_display_mode(PasswordDisplayMode::Masked).prompt()?;
 
     let mut client_rng = OsRng;
     let client_login_start_result = ClientLogin::<DefaultCipherSuite>::start(&mut client_rng, password.as_bytes()).map_err(|e| e.to_string())?;
@@ -228,15 +221,7 @@ pub fn logout(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::
 
 pub fn change_password(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn std::error::Error>> {
 
-    let password = Text::new("Enter your new password:").prompt()?;
-    let password_confirm = Text::new("Confirm your new password:").prompt()?;
-
-    if password != password_confirm {
-        println!("Passwords do not match");
-        // return error
-        return Err("Passwords do not match".into());
-    }
-
+    let password = Password::new("Enter your new password:").with_display_mode(PasswordDisplayMode::Masked).prompt()?;
 
     // Generate key with OPAQUE
     let mut client_rng = OsRng;
