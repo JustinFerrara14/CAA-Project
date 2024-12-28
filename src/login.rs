@@ -199,7 +199,13 @@ pub fn login(srv: &mut Server) -> Result<(String, Vec<u8>, GenericArray<u8, U64>
 
     let key = client_login_finish_result.export_key.clone();
     let key: Vec<u8> = key.to_vec();
-    // troncate the key to HASH_LEN_KEY
+
+    // Check if key has the minimum length
+    if key.len() < SYM_KEY_LEN {
+        return Err("Error in key generation".into());
+    }
+
+    // troncate the key to SYM_KEY_LEN
     let key = key[..SYM_KEY_LEN].to_vec();
     let key_communication = client_login_finish_result.session_key.clone();
 

@@ -2,25 +2,23 @@
 
 ## Niveau de sécurité choisi
 Dans ce projet, j'ai choisi de partir sur un niveau de sécurité de 256 bits pour la cryptographie symétriques. J'ai ensuite utilisé [keylength.com](https://www.keylength.com/en/4/) avec les recommandations du NIST de 2020 pour faire la liste suivante :
-- cryptographie symétrique: 256 bits
-- Hash : 512 bits
+- Taille de clés pour la cryptographie symétrique: 256 bits
+- Taille des hash : 512 bits
 - Taille clés pour courbes elliptiques : 512 bits
 
 >Note: comme Libsoduim ne prend pas en charge toutes les tailles de clés possible, certaine taille de clés sont un peu plus petite dans l'implémentation. Pour plus d'information pour les tailles de clés utilisées dans l'implémentation, voire le fichier [consts.rs](./src/consts.rs).
-## Contraintes client
-- Le client dispose uniquement de son nom d'utilisateur et son mot de passe.
-- Le client doit pouvoir changer son mot de passe
-- Le client doit pouvoir envoyer des fichiers confidentiels à un autre utilisateur avec une date d'ouverture.
-- Le fichier doit être téléchargeable par le client avant la date d'ouverture
-- Il ne doit pas être possible de lire le fichier avant la date d'ouverture
-- Le client ne doit pas pouvoir répudier les messages envoyés
-- Les messages envoyés sont authentifiés
+## Consignes
+Les consignes sont disponibles dans le fichier [mini_project_2425.pdf](./mini_project_2425.pdf).
 
-## Contraintes serveur
-- Le serveur est honnête mais curieux
+## Modélisation des adversaires
+La modélisation des adversaires est faite dans la consigne qui se trouve dans ce fichier [mini_project_2425.pdf](./mini_project_2425.pdf).
 
+## Légendes
+- utilisateur : personne physique utilisant la machine
+- client : ordinateur, machine que l'utilisateur utilise
+- serveur : serveur
 ## Algorithmes utilisés
-- OPAQUE pour obtenir 2 clé symétrique. Une dérivée du mot de passe nommée `key` et une partagée avec le serveur pour authentifier le client nommée `key_communication`. Les algorithmes utilisés pas OPAQUE sont les suivants :
+- OPAQUE pour obtenir 2 clé symétrique. Une dérivée du mot de passe nommée `key` et une partagée entre le client et le serveur pour authentifier le client, nommée `key_communication`. Les algorithmes utilisés pas OPAQUE sont les suivants :
 	- `Ristretto255` pour l'OPRF (Oblivious Pseudo-Random Function)
 	- `Ristretto255` pour le groupe KE
 	- `Triple D-H` pour l'échange de clés
@@ -32,10 +30,10 @@ Dans ce projet, j'ai choisi de partir sur un niveau de sécurité de 256 bits po
 
 ## Gestion des clés
 - Chaque utilisateur possède un mot de passe.
-- Chaque utilisateur possède 1 clé symétrique de 256 bits nommée `key` dérivée du mot de passe. Cette clés est disponible à la fin de l'échange OPAQUE avec le serveur. Elle est déterministe et sert à chiffrer et déchiffrer les clés asymétriques privées.
-- Chaque utilisateur possède 1 clé symétrique de 256 bits nommée `key_communication`. Dérivée de l'échange OPAQUE avec le serveur, non-déterministe. Elle sert à authentifier le client auprès du serveur pas la suite.
-- Chaque utilisateur possède 1 clé asymétrique de 512 bits pour le chiffrement des messages (priv1, pub1).
-- Chaque utilisateur possède 1 clé asymétrique de 512 bits pour la signature des messages (priv2, pub2).
+- Chaque utilisateur possède 1 clé symétrique de 256 bits nommée `key` dérivée du mot de passe. Cette clés est disponible à la fin de l'échange OPAQUE avec le serveur. Elle est déterministe et sert à chiffrer et déchiffrer les clés privées asymétriques.
+- Chaque utilisateur possède 1 clé symétrique de 256 bits nommée `key_communication`. Dérivée de l'échange OPAQUE avec le serveur, elle est non-déterministe. Elle sert à authentifier le client auprès du serveur pour des actions nécessitant une authentification, comme l'envoi de messages.
+- Chaque utilisateur possède une paire de clé asymétrique de 512 bits pour le chiffrement des messages (priv1, pub1).
+- Chaque utilisateur possède une paire de clé asymétrique de 512 bits pour la signature des messages (priv2, pub2).
 
 ## Tailles des clés
 ### OPAQUE
@@ -44,43 +42,47 @@ Dans ce projet, j'ai choisi de partir sur un niveau de sécurité de 256 bits po
 ### XSalsa20 et Poly1305 (SymEnc / SymDec)
 - La clé symétrique de `XSalsa20` est de 256 bits
 - Le nonce de `XSalsa20` est des 192 bits
-- `Poly1305` key nonce ???
+- La longueur du MAC `Poly1305` est de 256 bits ???
 ###  X25519, XSalsa20 et Poly1305 (HybEnc / HybDec)
 - La taille de la clé asymétrique de `X25519` est de 512 bits
 - La clé symétrique de `XSalsa20` est de 256 bits
 - Le nonce de `XSalsa20` est des 192 bits
-- `Poly1305` key nonce ???
+- La longueur du MAC `Poly1305` est de 256 bits ???
 ### Signature
-- `EdDSA` utilise une des paires clés asymétriques de 512 bits.
+- `EdDSA` utilise une paire clés asymétriques de 512 bits.
 
 ## Considérations
 ### Nonce
-Tous les nonce utilisés dans ce programme font 192 bits et sont choisis de manière aléatoire. En sachant cela, on peut calculer que la probabilité de collision sur un nonce reste acceptable en jusqu'à `2^80` messages pour le chiffrement hybride. En faisant un rapide calcul, on se rend compte que si un utilisateur envoie un message toute les millisecondes, il lui faudra environ 38'000 milliards d'années pour atteindre les `2^80` message. C'est pourquoi dans ce programme je ne garde pas un historique du nombre de messages envoyés pour faire une rotation des clés si le nombre devient trop grand, car ce nombre est impossible à atteindre dans cette situation.
+Tous les nonce utilisés dans ce programme font 192 bits et sont choisis de manière aléatoire. En sachant cela, on peut calculer que la probabilité de collision sur un nonce reste acceptable : 
+$$
+1 - e^{-\frac{n^2}{2d}} < 2^{-32}
+$$
+Avec `n` le nombre de messages possible avant que la probabilité soit supérieur à `2^-32` et `d` l'espace total, dans notre cas 192 bits. En résolvant l'équation on obtient :
+$$
+n = 80
+$$
+On peut donc envoyer jusqu'à `2^80` messages pour le chiffrement hybride ce qui est un nombre conséquent dans notre cas.
+
+En faisant un rapide calcul, je me rends compte que si un utilisateur envoie un message toute les millisecondes, il lui faudra environ 38'000 milliards d'années pour atteindre les `2^80` message. C'est pourquoi dans ce programme, je ne garde pas un historique du nombre de messages envoyés par utilisateur pour faire une rotation des clés si le nombre de messages envoyés devient trop grand. Car ce nombre est impossible à atteindre dans cette situation.
 
 ### Taille du fichier max
-Dans ce cas, j'utilise `XSalsa20` pour chiffrer les fichiers. `XSalsa20` utilise un compte interne de block de 64 bits. En sachant que chaque bloc fait 512 bits, cela veut dire que on peut chiffrer un fichier de cette taille:
+Dans ce cas, j'utilise `XSalsa20` pour chiffrer les fichiers. `XSalsa20` utilise un compte interne de bloc de 64 bits. En sachant que chaque bloc fait 512 bits, cela veut dire que on peut chiffrer un fichier de cette taille:
 $$
 tailleMaxBit= 2^{64} * 2^{9} = 2^{73}
 $$
 $$
 tailleMaxByte = 2^{64} * 2^{9} / 2^{3} = 2^{70}
 $$
-On constate donc que on aura jamais un fichier de cette taille, car c'est impossible à stocker sur une machine client qui correspond à notre use case. C'est pourquoi dans le code je ne contrôle pas la taille du fichier max.
+La taille max pour chiffrer un fichier est donc de `2^70` bytes.
+
+Je constate donc que il n'y aura jamais un fichier de cette taille à chiffrer, car c'est impossible à stocker sur une machine client qui correspond à notre cas d'utilisation. C'est pourquoi dans le code je ne contrôle pas la taille du fichier avant de commencer à le chiffrer.
 
 ### Gestion de l'aléatoire
-Nous avons besoins de générer des flus de bits aléatoire dans ce projet, notamment pour la génération des nonces. Pour ce faire, j'utilise la fonction `randombytes_buf`. Cette fonction utilise un PRNG ou TRNG en fonction de l'os utilisé:
+J'ai besoins de générer des flus de bits aléatoire dans ce projet, notamment pour la génération des nonces et lors de l'échange OPAQUE. Pour ce faire, j'utilise la fonction `randombytes_buf`. Cette fonction utilise un PRNG ou TRNG en fonction de l'os utilisé:
 - `RtlGenRandom()` pour Windows
 - `/dev/urandom` sur Linux
 - `arc4random()` ou `getrandom` pour FreeBSD
-- ...
-## Modélisation des adversaires
-- Le système doit être protégé contre les adversaires actifs
-- Les messages envoyé doivent être non répudiables
-- Le serveur est honnête mais curieux
-## Légendes
-- utilisateur : personne physique utilisant la machine
-- client : ordinateur, machine que l'utilisateur utilise
-- serveur : serveur
+- etc.
 ## Création de compte
 - L'utilisateur renseigne un nom d'utilisateur et 2 mot de passe identiques.
 - Le client vérifie que le premier mot de passe est le même que le second, si ce n'est pas le cas, il redemande un mot de passe.
@@ -126,15 +128,15 @@ IV2 = random[0..192]
 $$$$
 cpriv2||tag2 = SymEnc_{key}(IV2, priv2)
 $$
-- Le client termine l'échange OPAQUE en envoyant également les clés asymétriques `cpriv1`, `pub1`, `cpriv2` et `pub2`:
+- Le client termine l'échange OPAQUE en envoyant également les clés asymétriques `cpriv1`, `pub1`, `cpriv2` et `pub2` au serveur :
 $$
 Server:
-password\_file  = OPAQUE_{ServerRegistrationFinish}(username, client\_registration\_finish\_result, cpriv1 || tag1 || IV1, pub1, cpriv2 || tag2 || IV2, pub2)
+password\_file  = OPAQUE_{ServerRegistrationFinish}(client\_registration\_finish\_result)
 $$
 - Le serveur associe `password_file` avec le username et les clés asymétrique uniquement si l'échange OPAQUE a réussi.
-- Si il existe déjà un username dans la base de donnée, le server refuse d'écrire `password_file`
+- Si il existe déjà un username dans la base de donnée, le server refuse d'écrire `password_file`.
 
-> Note: pour le cas ou le username existe déjà, voire la partie `Registration` pour plus de détail.
+> Note: pour le cas où le username existe déjà, voire la partie `Changement de mot de passe` pour plus de détail.
 
 ### Schéma récapitulatif
 ![img](./img/register.png)
@@ -152,7 +154,7 @@ Server:
 server\_login\_start\_result  = OPAQUE_{ServerLogin}(username, client\_login\_start\_result, password\_file)
 $$
 $$
-Client: client\_login\_finish\_result = OPAQUE_{ClientLoginFinish}(password, server\_Login\_start\_result)
+Client: client\_login\_finish\_result = OPAQUE_{ClientLoginFinish}(password, server\_login\_start\_result)
 $$
 $$
 Client: key = client\_login\_finish\_result.export\_key\_key
@@ -162,12 +164,13 @@ Client: key\_communication = client\_login\_finish\_result.session\_key
 $$
 $$
 Server:
-server\_login\_finish\_result = OPAQUE_{ServerLoginFinish}(username, client\_login\_finish\_result)
+server\_login\_finish\_result = OPAQUE_{ServerLoginFinish}(client\_login\_finish\_result)
 $$
 $$
 Server: key\_communication = server\_login\_finish\_result.session\_key
 $$
 - Le serveur renvoie (cpriv1, pub1, cpriv2, pub2) au client à la fin de la connexion OPAQUE si la connexion a réussi.
+- Le client et le serveur on donc un secret partagé non-déterministe `key_communication` à la fin de l'échange OPAQUE.
 - Le client déchiffre cpriv1 et cpriv2 avec SymDec :
 $$
 priv1 = SymDec_{key}(cpriv1||tag1||IV1)
@@ -192,7 +195,7 @@ $$
 ![img](./img/login.png)
 ## Changement de mot de passe
 - Le client fait un login normal.
-- Le client possède donc (priv1, pub1, priv2, pub2, key, key_communication).
+- Le client possède donc priv1, pub1, priv2, pub2, key, key_communication.
 - L'utilisateur renseigne son nouveau mot de passe.
 - Le client fait un échange OPAQUE comme dans registration avec le serveur :
 $$
@@ -200,11 +203,11 @@ newKey = OPAQUE_{register}
 $$
 - Le client chiffre priv1 et priv2 avec SymEnc et newKey :
 $$
-IV1 = random[0..95]
+IV1 = random[0..192]
 $$$$
 cpriv1||tag1 = SymEnc_{newKey}(IV1, priv1)
 $$$$
-IV2 = random[0..95]
+IV2 = random[0..192]
 $$$$
 cpriv2||tag2 = SymEnc_{newKey}(IV2, priv2)
 $$
@@ -221,9 +224,9 @@ $$
 ![img](./img/changePassword.png)
 ## Envoi de Message
 - Le client fait un login normal.
-- Le client possède donc (priv1, pub1, priv2, pub2, key, key_communication)
+- Le client possède donc priv1, pub1, priv2, pub2, key, key_communication.
 - L'utilisateur rentre le destinataire, le fichier à envoyer et le timestamp auquel le destinataire pourra l'ouvrir.
-- Le client génére un le MAC :
+- Le client génère le MAC :
 $$
 auth = MAC_{key\_communication}(username)
 $$
@@ -237,12 +240,12 @@ $$
 nonceFile = random[0..192]
 $$
 $$
-cipher1 = HybEnc(filename, nonceFilename, pub1Dest, priv1)
+cipher1 = HybEnc_{pub1Dest, priv1}(filename, nonceFilename)
 $$
 $$
-cipher2 = HybEnc(file, nonceFile, pub1Dest, priv1)
+cipher2 = HybEnc_{pub1Dest, priv1}(file, nonceFile)
 $$
-- Le client signe le fichier chiffré, le nom de fichier chiffré, le nonceFilename, le sender, le receiver et la date autorisée d'ouverture du Message avec priv2 :
+- Le client signe le fichier chiffré, le nom de fichier chiffré, le nonceFilename, le sender, le receiver et la date autorisée d'ouverture du message avec priv2 :
 $$
 signature = EdDSA_{priv2}(sender, receiver, timestamp, nonceFilename, filename, file)
 $$
@@ -256,14 +259,15 @@ $$
 	- cipherFilename
 	- nonceFile
 	- cipherFile
+	- signature
 - Le serveur accepte de recevoir le message si le MAC est correct.
 
 ### Schéma récapitulatif
 ![img](./img/sendMessage.png)
 ## Réception de Message
 - Le client fait un login normal.
-- Le client possède donc (priv1, pub1, priv2, pub2, key, key_communication)
-- Le client fait une demande pour recevoir ses message en envoyant son username avec le MAC :
+- Le client possède donc priv1, pub1, priv2, pub2, key, key_communication.
+- Le client fait une demande pour recevoir ses messages en envoyant son username avec le MAC :
  $$
 auth = MAC_{key\_communication}(username)
 $$

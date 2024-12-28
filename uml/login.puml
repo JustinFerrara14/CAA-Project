@@ -6,16 +6,18 @@ participant Server
 == Login ==
 User -> Client: Fournir nom d'utilisateur et mot de passe
 
-Client -> Server: client_login_start_result = OPAQUE_ClientLogin(password)
+Client -> Client: client_login_start_result = OPAQUE_ClientLogin(password)
+Client -> Server: client_login_start_result
 Server -> Server: Cherche password_file lié au username
-Server -> Client: server_login_start_result = OPAQUE_ServerLogin(username, client_login_start_result, password_file)
+Server -> Server: server_login_start_result = OPAQUE_ServerLogin(username, client_login_start_result, password_file)
+Server -> Client: server_login_start_result
 
 Client -> Client: client_login_finish_result = OPAQUE_ClientLoginFinish(password, server_Login_start_result)
 Client -> Client: key = client_login_finish_result.export_key
 Client -> Client: key_communication = client_login_finish_result.session_key
 
 Client -> Server: client_login_finish_result
-Server -> Server: OPAQUE_ServerLoginFinish(username, client_login_finish_result)
+Server -> Server: server_login_finish_result = OPAQUE_ServerLoginFinish(username, client_login_finish_result)
 Server -> Server: key_communication = server_login_finish_result.session_key
 
 alt Connexion réussie
