@@ -15,8 +15,11 @@ Client -> Client: auth = MAC_key_communication(username)
 Client -> Server: Demande des messages avec username et auth
 Server -> Server: auth' = MAC_key_communication(username)
 alt MAC valide (auth == auth')
-    Server -> Client: Renvoie les messages selon timestamp = vec(Message)
+    Server -> Client: Renvoie les messages selon timestamp
     loop Pour chaque message dans vec(Message)
+        alt timestamp dans le futur
+            Server -> Server: génére un timePuzzle et met nonceFile à 0
+        end
         Server -> Client: sender, receiver, timestamp, nonceFilename, cipherFilename, nonceFile, cipherFile, timePuzzle
     end
 else MAC invalide (auth != auth')
@@ -24,12 +27,12 @@ else MAC invalide (auth != auth')
 end
 
 loop Pour chaque message reçu
-    Client -> Client: Vérifie la signature du message
-    Client -> Client: signature' = EdDSA_pubSender(sender, receiver, timestamp, nonceFilename, filename, file)
-    Client -> Client: Vérifie signature' = message.signature
-    alt signature' != message.signature
+    Client -> Client: Vérifie la signature avec pub2Sender
+    alt signature incorrecte
         Client -> Client: Lance une erreur et passe au message suivant
     end
+
+    Client -> Client: Déchiffre le filename avec priv1 et nonceFilename
 
     Client -> Client: Check nonceFile == 0
     alt nonceFile == 0
@@ -44,11 +47,10 @@ loop Pour chaque message reçu
     end
 
     alt nonceFile != 0
-        Client -> Client: Déchiffre le message
-        Client -> Client: m = HybDec(c, priv1, pubSender)
-        Client -> Client: Écrit m sur le disque
+        Client -> Client: Déchiffre le fichier file avec priv1 et nonceFile
+        Client -> Client: Écrit le fichier sur le disque
     else nonceFile == 0
-        Client -> Client: Écrit le message chiffré sur le disque
+        Client -> Client: Écrit le fichier chiffré sur le disque
     end
 end
 @enduml

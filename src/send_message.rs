@@ -132,7 +132,7 @@ fn encrypt_file(file_content: Vec<u8>, pub_key_recipient: [u8; ENC_KEY_LEN_PUB],
     Ok((encrypted_file, nonce2))
 }
 
-pub fn sign_message(priv_key_sender: [u8; SIGN_KEY_LEN_PRIV], encrypted_filename: Vec<u8>, nonce1: [u8; ENC_LEN_NONCE], encrypted_file: Vec<u8>, nonce2: [u8; ENC_LEN_NONCE], sender: &str, recipient: &str, timestamp: SystemTime) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+pub fn sign_message(priv_key_sender: [u8; SIGN_KEY_LEN_PRIV], encrypted_filename: Vec<u8>, nonce_filename: [u8; ENC_LEN_NONCE], encrypted_file: Vec<u8>, sender: &str, recipient: &str, timestamp: SystemTime) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     // Convert SystemTime to seconds and nanoseconds
     let duration_since_epoch = timestamp.duration_since(UNIX_EPOCH)
         .map_err(|_| "Time went backwards")?;
@@ -142,7 +142,7 @@ pub fn sign_message(priv_key_sender: [u8; SIGN_KEY_LEN_PRIV], encrypted_filename
     // Sign all the message: filename, file, sender, recipient, timestamp
     let mut message_to_sign = Vec::new();
     message_to_sign.extend_from_slice(&encrypted_filename);           // File name
-    message_to_sign.extend_from_slice(&nonce1);                      // Nonce for file name
+    message_to_sign.extend_from_slice(&nonce_filename);                      // Nonce for file name
     message_to_sign.extend_from_slice(&encrypted_file);       // File content
     message_to_sign.extend_from_slice(sender.as_bytes());  // Sender username
     message_to_sign.extend_from_slice(recipient.as_bytes()); // Recipient username
@@ -187,17 +187,17 @@ pub fn send_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<dyn
         .map_err(|e| format!("Error reading file {}: {}", file_path, e))?;
 
     // Encrypt the file name
-    let (encrypted_filename, nonce1) = encrypt_filename(file_name, pub_key_recipient, *usr.get_priv_enc())?;
+    let (encrypted_filename, nonce_filename) = encrypt_filename(file_name, pub_key_recipient, *usr.get_priv_enc())?;
 
     // Encrypt the file
-    let (encrypted_file, nonce2) = encrypt_file(file_content, pub_key_recipient, *usr.get_priv_enc())?;
+    let (encrypted_file, nonce_file) = encrypt_file(file_content, pub_key_recipient, *usr.get_priv_enc())?;
 
     // signe the message
-    let signature = sign_message(*usr.get_priv_sign(), encrypted_filename.clone(), nonce1, encrypted_file.clone(), nonce2, usr.get_username(), &*receiver, timestamp)?;
+    let signature = sign_message(*usr.get_priv_sign(), encrypted_filename.clone(), nonce_filename, encrypted_file.clone(), usr.get_username(), &*receiver, timestamp)?;
 
     // Send the file to the server
     // TODO change
-    srv.send_message(usr.get_mac().clone(), usr.get_username(), &*receiver, timestamp, encrypted_filename, nonce1, encrypted_file, nonce2, signature)?;
+    srv.send_message(usr.get_mac().clone(), usr.get_username(), &*receiver, timestamp, encrypted_filename, nonce_filename, encrypted_file, nonce_file, signature)?;
 
     println!("Message sent successfully");
 

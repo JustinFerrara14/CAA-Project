@@ -24,7 +24,7 @@ La modélisation des adversaires est faite dans la consigne qui se trouve dans c
 	- `Triple D-H` pour l'échange de clés
 	- `Argon2` pour la KSF avec les paramètres par défaut
 - `XSalsa20` avec `Poly1305` comme mac pour le chiffrement symétrique des clés asymétriques. Cette combinaison d'algorithme sera nommée `SymEnc` ou `SymDec`
-- `X25519`,` XSalsa20` et `Poly1305` pour le chiffrement hybride et la signature des certaines parties du message. Cette combinaison d'algorithme sera nommée `HybEnc` ou `HybDec`
+- `X25519`,` XSalsa20` et `Poly1305` pour le chiffrement hybride et la signature de certaines parties du message. Cette combinaison d'algorithme sera nommée `HybEnc` ou `HybDec`
 - `EdDSA` pour la signature du message.
 - `TLS 1.3` pour protéger la confidentialité, l'authenticité et l'intégrité de toutes les communication entre le client et le serveur.
 
@@ -213,11 +213,13 @@ cpriv2||tag2 = SymEnc_{newKey}(IV2, priv2)
 $$
 - Le client envoie au server les nouvelles clés comme dans la partie registration `ServerFinishRegistration`.
 
-> On notera que comme l'utilisateur existe déjà dans la base de données, le serveur vérifie que l'utilisateur est bien en possession de la clé `key_communiction` en vérifiant le MAC :
+> On notera que comme l'utilisateur existe déjà dans la base de données, le serveur vérifie que l'utilisateur est bien en possession de la clé `key_communication` en vérifiant le MAC du nom d'utilisateur :
 $$
 
 auth = MAC_{key\_communication}(username)
 $$
+> Pour plus de détail sur cette partie, voire le paragraphe [Authentification](#Authentification).
+
 - Si le MAC est juste, alors le serveur accepte de changer le `password_file` dans la base de données, à la fin de l'échange dans server_registration_finish.
 
 ### Schéma récapitulatif
@@ -230,8 +232,10 @@ $$
 $$
 auth = MAC_{key\_communication}(username)
 $$
+> Pour plus de détail sur cette partie, voire le paragraphe [Authentification](#Authentification).
+
 - Le client demande la clé publique du destinataire du Message au serveur en envoyant son username et le MAC.
-- Le serveur vérifie le MAC avec sa clé key_communication et renvoie la clé publique correspondante `pub1Dest`.
+- Le serveur vérifie le MAC avec sa clé `key_communication` et renvoie la clé publique correspondante `pub1Dest`.
 - Le client utilise `HybEnc` pour chiffrer le fichier et le nom de fichier en utilisant la clé publique du destinataire :
 $$
 nonceFilename = random[0..192]
@@ -240,14 +244,14 @@ $$
 nonceFile = random[0..192]
 $$
 $$
-cipher1 = HybEnc_{pub1Dest, priv1}(filename, nonceFilename)
+cipherFilename = HybEnc_{pub1Dest, priv1}(filename, nonceFilename)
 $$
 $$
-cipher2 = HybEnc_{pub1Dest, priv1}(file, nonceFile)
+cipherFile = HybEnc_{pub1Dest, priv1}(file, nonceFile)
 $$
 - Le client signe le fichier chiffré, le nom de fichier chiffré, le nonceFilename, le sender, le receiver et la date autorisée d'ouverture du message avec priv2 :
 $$
-signature = EdDSA_{priv2}(sender, receiver, timestamp, nonceFilename, filename, file)
+signature = EdDSA_{priv2}(sender, receiver, timestamp, nonceFilename, cipherFilename, cipherFile)
 $$
 - Le client vérifie si la signature est correcte
 - Le client envoie au serveur :
@@ -271,6 +275,8 @@ $$
  $$
 auth = MAC_{key\_communication}(username)
 $$
+> Pour plus de détail sur cette partie, voire le paragraphe [Authentification](#Authentification).
+
 - Le serveur vérifie si auth est juste, si c'est le cas, il renvoie tous les message au destinataire de la manière suivante:
 	- Si le timestamp du message est dans le passé alors le serveur envoie :
 $$
@@ -281,26 +287,53 @@ $$
 sender, receiver, timestamp, nonceFilename, cipherFilename, 0, cipherFile, timePuzzle
 $$
 > Dans le cas où le client à le droit de déchiffrer le message et que donc il est en possession du nonceFile, le serveur renvoie quand même un timePuzzle qui ne sert à rien. C'est pour simplifier l'implémentation.
-> 
-- Le client reçoit le message du serveur.
+
+- Le client reçoit les messages du serveur. Pour chaque message, le client fait les opérations suivantes :
 - Le client vérifie que la signature du Message est correcte :
 $$
-signature' = EdDSA_{pubSender}(sender, receiver, timestamp, nonceFilename, filename, file)
+signature' = EdDSA_{pub2Sender}(sender, receiver, timestamp, nonceFilename, cipherFilename, cipherFile)
 $$
 $$
-signature = siganture'
+signature \stackrel{?}{=} siganture'
+$$
+- Si la signature est correcte, alors le client continue. Sinon il s'arrête.
+- Le client déchiffre le filename :
+$$
+filename = HybDec_{priv1, pub1Send}(cipherFilename, nonceFilename)
 $$
 - Le client check si le nonceFile vaut 0:
 	- si c'est le cas le client propose à l'utilisateur de déchiffrer localement en utilisant le time lock puzzle. Le client va donc ensuite commencer les calculs pour retrouver le nonceFile. Le nonceFile sera trouvé quand le time lock puzzle sera résolu, ce qui devrait prendre le même temps que d'attendre que le temps s'écoule et demander le nonceFile au serveur.
-	- sinon le client écrit sur le disque le fichier chiffré sans pouvoir le déchiffrer. Il peut cependant déjà mettre le bon nom de fichier comme il a en sa possession filename et nonceFilename. Il peut également indiquer la date à laquelle le message pourra être déchiffré.
+	- sinon le client écrit sur le disque le fichier chiffré sans pouvoir le déchiffrer. Il peut déjà mettre le bon nom de fichier comme il l'a en sa possession. Il peut également indiquer la date à laquelle le message pourra être déchiffré car la date n'est pas chiffrée.
 - Si le nonceFile ne vaut pas 0, le client déchiffre le Message m :
 $$
-m = HybDec(priv1, pubSender)
+file = HybDec_{priv1, pub1Send}(cipherFile, nonceFile)
 $$
 
 ### Schéma récapitulatif
 ![img](./img/receiveMessage.png)
-## Types d'adversaires
+
+## Authentification
+Pour certaines requêtes, comme par exemple la réception des messages, le client a besoins d'être authentifié auprès du serveur pour que la requête soit acceptée. Je l'ai fait de cette manière :
+
+- Le client génère un MAC nommé ici `auth` en utilisant sa clé `key_communication` générée pendant l'échange OPAQUE et son nom d'utilisateur :
+$$
+
+auth = MAC_{key\_communication}(username)
+$$
+- Le client fait une requête au serveur qui nécessite une authentification et fourni en même temps `auth`.
+- Le serveur vérifie ensuite `auth` de son côté avec sa clé `key_communication` :
+$$
+auth' = MAC_{key\_communication}(username)
+$$
+$$
+auth' \stackrel{?}{=} auth
+$$
+- Le MAC est juste si :
+$$
+auth' = auth
+$$
+- Si le MAC est juste, cela veut dire que l'utilisateur démontre qu'il est bien en possession de la clé `key_communication` définie durant l'échange OPAQUE effectué pour le login. Cela veut dire qu'il s'est connecté de manière correcte. Le serveur accepte donc la requête demandée par le client.
+## Types d'adversaires ???
 - **Adversaires Actifs** :   
   - **Signatures Numériques** : Les messages sont signés avec les clés privées des utilisateurs, empêchant ainsi la répudiation et garantissant l'authenticité des messages. 
   - **Utilisation de TLS 1.3** : Toutes les communications entre le client et le serveur sont sécurisées avec TLS 1.3, protégeant les données en transit contre les interceptions et les modifications.  
@@ -312,15 +345,15 @@ $$
 ## Bonus
 ### OPAQUE
 OPAQUE est utilisé ici pour divers aspects:
-- authentification du client avec le mot de passe
-- mitiger les attaques par sel connu
-- dérivation d'un clé à partir du mot de passe
-- dérivation d'un clé de session disponible côté client et serveur pour authentifier les actions du client
+- Authentification du client avec le mot de passe.
+- Mitiger les attaques par sel connu.
+- Dérivation d'une clé déterministe à partir du mot de passe nommée ici `key`. Cette clé est utilisée pour stocker les clés privées du client de manière sécurisée sur le serveur.
+- Dérivation d'une clé de session disponible côté client et serveur pour authentifier les actions du client. Cette clé est non-déterministe et est nommée dans ce rapport `key_communication`.
 
-### Time lock puzzle
+### Time lock puzzle ???
 Pour permettre de déchiffrer un message au client, sans accès au serveur après l'avoir téléchargé avant la date d'ouverture, j'ai utilisé un time lock puzzle.
 
-le time lock puzzle permet de trouver le nonceFile de manière complétement offline et ainsi de déchiffrer le fichier. Comme notre nonce fait 24 bytes et que la librairie utilisé permet de faire des time lock puzzle sur des entiers de 8 bytes, on doit faire 3 time lock puzzle.
+Le time lock puzzle permet de trouver le nonceFile de manière complétement offline et ainsi de déchiffrer le fichier. Comme notre nonce fait 24 bytes et que la librairie utilisé permet de faire des time lock puzzle sur des entiers de 8 bytes, on doit faire 3 time lock puzzle.
 
 Un seul time lock puzzle doit prendre le temps nécessaire jusqu'à la date de libération du fichier. Comme on en a 3, il faut les résoudre en parallèle sur la machine cliente.
 

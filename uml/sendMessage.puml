@@ -22,9 +22,9 @@ else MAC invalide (auth != auth')
     Server -> Client: Refuse la demande
 end
 
-Client -> Client: Chiffre le fichier et le nom de fichier avec pub1Dest et priv1
+Client -> Client: Chiffre le fichier et le nom de fichier avec pub1Dest
 
-Client -> Client: Signe le message avec priv2
+Client -> Client: Signe le sender, receiver, timestamp, nonceFilename, cipherFilename, cipherFile avec priv2
 
 Client -> Server: sender, auth, receiver, timestamp, nonceFilename, cipherFilename, nonceFile, cipherFile, signature
 
