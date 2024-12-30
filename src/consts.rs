@@ -1,9 +1,9 @@
 use libsodium_sys::*;
-use std::ffi::*;
 
 
 /// Const for mac
 pub(crate) const MAC_LEN: usize = crypto_auth_BYTES as usize;
+pub(crate) const MAC_KEY_LEN: usize = crypto_auth_KEYBYTES as usize;
 
 /// Const for sym encryption
 pub(crate) const SYM_KEY_LEN: usize = crypto_secretbox_KEYBYTES as usize;

@@ -6,11 +6,8 @@ use num_bigint::BigUint;
 use crate::database::{Database, Message};
 use crate::consts::*;
 use rand::rngs::OsRng;
-use rand::RngCore;
 use opaque_ke::*;
-use opaque_ke::ksf::Ksf;
 use std::default::Default;
-use std::error::Error;
 use std::{io, result};
 use argon2::Argon2;
 
@@ -143,6 +140,11 @@ impl Server {
 
         // Key to check if the user is connected
         let key_communication = server_login_finish_result.session_key.clone();
+
+        if key_communication.len() < MAC_LEN {
+            return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Error in key generation")));
+        }
+
         self.db.connect_user(username.to_string(), key_communication)?;
 
         let user = self.db.get_user(&*username).unwrap();
@@ -243,7 +245,7 @@ impl Server {
                 let puzzle3 = lhtlp.generate(secret3);
 
 
-                /// Uncomment to check the time needed to solve 1 puzzle
+                // Uncomment to check the time needed to solve 1 puzzle
                 // check the time needed
                 // println!("Time needed to take in seconds: {:?}", time);
                 //

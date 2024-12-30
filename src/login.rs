@@ -18,6 +18,11 @@ use rand::rngs::OsRng;
 ///
 
 fn calculate_mac(username: &str, key_communication: Vec<u8>) -> Result<[u8; MAC_LEN], Box<dyn std::error::Error>> {
+
+    if key_communication.len() < MAC_KEY_LEN {
+        return Err(Box::new(io::Error::new(io::ErrorKind::Other, "Error in key generation")));
+    }
+
     let mut mac = [0u8; MAC_LEN];
 
     let result = unsafe {
@@ -174,9 +179,6 @@ pub fn register(srv: &mut Server) -> Result<(), Box<dyn std::error::Error>> {
         return Err("Error in key generation".into());
     }
 
-    // troncate the key to SYM_KEY_LEN
-    let key = key[..SYM_KEY_LEN].to_vec();
-
     // generate asym keys
     let (pub1, nonce1, cpriv1, pub2, nonce2, cpriv2) = generate_asym_key(&key)?;
 
@@ -210,8 +212,6 @@ pub fn login(srv: &mut Server) -> Result<(String, Vec<u8>, GenericArray<u8, U64>
         return Err("Error in key generation".into());
     }
 
-    // troncate the key to SYM_KEY_LEN
-    let key = key[..SYM_KEY_LEN].to_vec();
     let key_communication = client_login_finish_result.session_key.clone();
 
     let (pub1, cpriv1, nonce1, pub2, cpriv2, nonce2) = srv.server_login_finish(&username, server_login_start_result, client_login_finish_result)?;

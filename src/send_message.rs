@@ -1,7 +1,7 @@
 use inquire::Text;
 use std::{fs, io};
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
-use chrono::{Datelike, NaiveDateTime, TimeZone, Utc};
+use chrono::{Datelike, NaiveDateTime, TimeZone};
 use libsodium_sys::*;
 
 use crate::server::Server;
@@ -70,7 +70,7 @@ fn get_timestamp() -> Option<SystemTime> {
                         println!("Date and time valid : {:?}", naive_dt);
                         return Some(system_time);
                     }
-                    Err(err) => {
+                    Err(_) => {
                         // Afficher un message d'erreur pour un format incorrect
                         println!(
                             "Error : the date and time must be in the format YYYY.MM.DD HH:MM (2012.12.31 14:00). Please try again."

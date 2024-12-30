@@ -7,9 +7,8 @@ mod server;
 mod user_connected;
 
 use crate::server::Server;
-use inquire::{Select, Text};
+use inquire::{Select};
 use libsodium_sys::*;
-use std::result;
 use user_connected::UserConnected;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -3,8 +3,6 @@ use std::time::UNIX_EPOCH;
 use inquire::Text;
 use libsodium_sys::*;
 use chrono::{DateTime, Local};
-use lhtlp::LHTLP;
-use num_bigint::BigUint;
 use num_traits::ops::bytes::ToBytes;
 use std::thread;
 
@@ -135,7 +133,7 @@ pub fn receive_message(srv: &mut Server, usr: &UserConnected) -> Result<(), Box<
     let username = usr.get_username();
     let messages = srv.get_messages(usr.get_mac().clone(), username)?;
 
-    println!("Messages received");
+    println!("{} Messages received", messages.len());
 
 
     // Create a directory if not exist to store the messages
