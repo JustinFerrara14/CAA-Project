@@ -415,7 +415,7 @@ $$
 	- **Utilisation de TLS 1.3** : Toutes les communications entre le client et le serveur sont sécurisées avec TLS 1.3, protégeant les données en transit contre les interceptions et les modifications.
 	- **Utilisation de OPAQUE** : Permet d'éviter les attaques à sel connu et d'authentifier les actions effectuées par le client auprès du serveur. Permettant ainsi d'authoriser uniquement les utilisateurs connectés à envoyer des messages par exemple.
 - **Serveur Honnête mais Curieux** :   
-	-  **Chiffrement de Bout en Bout** : Les messages sont chiffrés de bout en bout en utilisant du chiffrement hybride. Ce qui empêche le serveur d'en lire le contenu.
+	- **Chiffrement de Bout en Bout** : Les messages sont chiffrés de bout en bout en utilisant du chiffrement hybride. Ce qui empêche le serveur d'en lire le contenu.
 	- **Stockage Sécurisé des Clés** : Les clés privées des utilisateurs sont stockées chiffrées sur le serveur, empêchant leur utilisation non autorisée, même en cas de compromission du serveur.
 	- **Échange de clés authentifié** : L'utilisation de OPAQUE permet d'authentifier les utilisateurs, sans sortir le sel du serveur et sans transmettre le hash au serveur. Cela permet d'éviter les attaques à sel connu.
 
