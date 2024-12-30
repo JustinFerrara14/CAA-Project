@@ -57,10 +57,13 @@ La modélisation des adversaires est faite dans la consigne qui se trouve dans c
 ## Considérations
 ### Nonce
 Tous les nonces utilisés dans ce programme font 192 bits et sont choisis de manière aléatoire. En sachant cela, on peut calculer que la probabilité de collision sur un nonce reste acceptable : 
+
 $$
 1 - e^{-\frac{n^2}{2d}} < 2^{-32}
 $$
+
 Avec `n` le nombre de messages possible avant que la probabilité soit supérieure à `2^-32` et `d` l'espace total, dans notre cas 192 bits. En résolvant l'équation on obtient :
+
 $$
 n = 80
 $$
@@ -70,12 +73,15 @@ En faisant un rapide calcul, je me rends compte que si un utilisateur envoie un 
 
 ### Taille du fichier max
 Dans ce cas, j'utilise `XSalsa20` pour chiffrer les fichiers. `XSalsa20` utilise un compte interne de bloc de 64 bits. En sachant que chaque bloc fait 512 bits, cela veut dire que on peut chiffrer un fichier de cette taille:
+
 $$
 tailleMaxBit= 2^{64} * 2^{9} = 2^{73}
 $$
+
 $$
 tailleMaxByte = 2^{64} * 2^{9} / 2^{3} = 2^{70}
 $$
+
 La taille max pour chiffrer un fichier est donc de `2^70` bytes.
 
 Je constate donc qu'il n'y aura jamais un fichier de cette taille à chiffrer, car c'est impossible à stocker sur une machine client qui correspond à notre cas d'utilisation. C'est pourquoi dans le code je ne contrôle pas la taille du fichier avant de commencer à le chiffrer.
@@ -102,42 +108,56 @@ $$
 Client:
 client\_registration\_start\_result = OPAQUE_{ClientRegistration}(password)
 $$
+
 $$
 Server:
 server\_registration\_start\_result  = OPAQUE_{ServerRegistration}(username, client\_registration\_start\_result)
 $$
+
 $$
 Client: client\_registration\_finish\_result = OPAQUE_{ClientRegistrationFinish}(password, server\_registration\_start\_result)
 $$
+
 $$
 Client: key = client\_registration\_finish\_result.export\_key
 $$
 
+
 - Le client génère 2 clés asymétriques de 512 bits 
+
 $$
 priv1 = random[0..512]
 $$
+
 $$
 pub1 = priv1*G
 $$
+
 $$
 priv2 = random[0..512]
 $$
+
 $$
 pub2 = priv2*G
 $$
 - Le client chiffre priv1 et priv2 avec `SymEnc` en utilisant sa clé `key`, ce qui donne :
+
 $$
 IV1 = random[0..192]
 $$
+
 $$
 cpriv1||tag1 = SymEnc_{key}(IV1, priv1)
 $$
+
 $$
 IV2 = random[0..192]
-$$$$
+$$
+
+$$
 cpriv2||tag2 = SymEnc_{key}(IV2, priv2)
 $$
+
 - Le client termine l'échange OPAQUE en envoyant également les clés asymétriques `cpriv1`, `pub1`, `cpriv2` et `pub2` au serveur :
 $$
 Server:
@@ -154,45 +174,58 @@ $$
 ## Login
 - Le client renseigne son nom d'utilisateur et son mot de passe.
 - Le client fait un échange OPAQUE avec le serveur :
+
 $$
 Client:
 client\_login\_start\_result = OPAQUE_{ClientLogin}(password)
 $$
+
 - Le serveur va chercher le password file en lien avec le username
+
 $$
 Server:
 server\_login\_start\_result  = OPAQUE_{ServerLogin}(username, client\_login\_start\_result, password\_file)
 $$
+
 $$
 Client: client\_login\_finish\_result = OPAQUE_{ClientLoginFinish}(password, server\_login\_start\_result)
 $$
+
 $$
 Client: key = client\_login\_finish\_result.export\_key\_key
 $$
+
 $$
 Client: key\_communication = client\_login\_finish\_result.session\_key
 $$
+
 $$
 Server:
 server\_login\_finish\_result = OPAQUE_{ServerLoginFinish}(client\_login\_finish\_result)
 $$
+
 $$
 Server: key\_communication = server\_login\_finish\_result.session\_key
 $$
+
 - Le serveur renvoie (cpriv1, pub1, cpriv2, pub2) au client à la fin de la connexion OPAQUE si la connexion a réussi.
 - Le client et le serveur on donc un secret partagé non-déterministe `key_communication` à la fin de l'échange OPAQUE.
 - Le client déchiffre cpriv1 et cpriv2 avec SymDec :
+
 $$
 priv1 = SymDec_{key}(cpriv1||tag1||IV1)
 $$
+
 $$
 priv2 = SymDec_{key}(cpriv2||tag2||IV2)
 $$
 - Le client contrôle que tag1 et tag2 sont correct
 - Le client contrôle cette égalité pour s'assurer que la clé publique n'a pas été modifiée :
+
 $$
 priv1 * G = pub1
 $$
+
 - Le client possède donc :
 	- key
 	- key_communication
@@ -208,26 +241,37 @@ $$
 - Le client possède donc priv1, pub1, priv2, pub2, key, key_communication.
 - L'utilisateur renseigne son nouveau mot de passe.
 - Le client fait un échange OPAQUE comme dans registration avec le serveur :
+
 $$
 newKey = OPAQUE_{register}
 $$
+
 - Le client chiffre priv1 et priv2 avec SymEnc et newKey :
+
 $$
 IV1 = random[0..192]
-$$$$
+$$
+
+$$
 cpriv1||tag1 = SymEnc_{newKey}(IV1, priv1)
-$$$$
+$$
+
+$$
 IV2 = random[0..192]
-$$$$
+$$
+
+$$
 cpriv2||tag2 = SymEnc_{newKey}(IV2, priv2)
 $$
+
 - Le client envoie au server les nouvelles clés comme dans la partie registration `ServerFinishRegistration`.
 
 > On notera que comme l'utilisateur existe déjà dans la base de données, le serveur vérifie que l'utilisateur est bien en possession de la clé `key_communication` en vérifiant le MAC du nom d'utilisateur :
-$$
 
+$$
 auth = MAC_{key\_communication}(username)
 $$
+
 > Pour plus de détail sur cette partie, voire le paragraphe [Authentification](#Authentification).
 
 - Si le MAC est juste, alors le serveur accepte de changer le `password_file` dans la base de données, à la fin de l'échange dans server_registration_finish.
@@ -239,26 +283,33 @@ $$
 - Le client possède donc priv1, pub1, priv2, pub2, key, key_communication.
 - L'utilisateur rentre le destinataire, le fichier à envoyer et le timestamp auquel le destinataire pourra l'ouvrir.
 - Le client génère le MAC :
+
 $$
 auth = MAC_{key\_communication}(username)
 $$
+
 > Pour plus de détail sur cette partie, voire le paragraphe [Authentification](#Authentification).
 
 - Le client demande la clé publique du destinataire du Message au serveur en envoyant son username et le MAC.
 - Le serveur vérifie le MAC avec sa clé `key_communication` et renvoie la clé publique correspondante `pub1Dest`.
 - Le client utilise `HybEnc` pour chiffrer le fichier et le nom de fichier en utilisant la clé publique du destinataire :
+
 $$
 nonceFilename = random[0..192]
 $$
+
 $$
 nonceFile = random[0..192]
 $$
+
 $$
 cipherFilename = HybEnc_{pub1Dest, priv1}(filename, nonceFilename)
 $$
+
 $$
 cipherFile = HybEnc_{pub1Dest, priv1}(file, nonceFile)
 $$
+
 - Le client signe le fichier chiffré, le nom de fichier chiffré, le nonceFilename, le sender, le receiver et la date autorisée d'ouverture du message avec priv2 :
 $$
 signature = EdDSA_{priv2}(sender, receiver, timestamp, nonceFilename, cipherFilename, cipherFile)
@@ -282,9 +333,11 @@ $$
 - Le client fait un login normal.
 - Le client possède donc priv1, pub1, priv2, pub2, key, key_communication.
 - Le client fait une demande pour recevoir ses messages en envoyant son username avec le MAC :
+ 
  $$
 auth = MAC_{key\_communication}(username)
 $$
+
 > Pour plus de détail sur cette partie, voire le paragraphe [Authentification](#Authentification).
 
 - Le serveur vérifie si auth est juste, si c'est le cas, il renvoie tous les messages au destinataire de la manière suivante:
@@ -300,21 +353,27 @@ $$
 
 - Le client reçoit les messages du serveur. Pour chaque message, le client fait les opérations suivantes :
 - Le client vérifie que la signature du Message est correcte :
+
 $$
 signature' = EdDSA_{pub2Sender}(sender, receiver, timestamp, nonceFilename, cipherFilename, cipherFile)
 $$
+
 $$
 signature \stackrel{?}{=} siganture'
 $$
+
 - Si la signature est correcte, alors le client continue. Sinon il s'arrête.
 - Le client déchiffre le filename :
+
 $$
 filename = HybDec_{priv1, pub1Send}(cipherFilename, nonceFilename)
 $$
+
 - Le client check si le nonceFile vaut 0:
 	- si c'est le cas le client propose à l'utilisateur de déchiffrer localement en utilisant le time lock puzzle. Le client va donc ensuite commencer les calculs pour retrouver le nonceFile. Le nonceFile sera trouvé quand le time lock puzzle sera résolu, ce qui devrait prendre le même temps que d'attendre que le temps s'écoule et demander le nonceFile au serveur.
 	- sinon le client écrit sur le disque le fichier chiffré sans pouvoir le déchiffrer. Il peut déjà mettre le bon nom de fichier comme il l'a en sa possession. Il peut également indiquer la date à laquelle le message pourra être déchiffré car la date n'est pas chiffrée.
 - Si le nonceFile ne vaut pas 0, le client déchiffre le Message m :
+
 $$
 file = HybDec_{priv1, pub1Send}(cipherFile, nonceFile)
 $$
@@ -327,22 +386,28 @@ $$
 Pour certaines requêtes, comme la réception des messages, le client a besoins d'être authentifié auprès du serveur pour que la requête soit acceptée. Je l'ai fait de cette manière :
 
 - Le client génère un MAC nommé ici `auth` en utilisant sa clé `key_communication` générée pendant l'échange OPAQUE et son nom d'utilisateur :
-$$
 
+$$
 auth = MAC_{key\_communication}(username)
 $$
+
 - Le client fait une requête au serveur qui nécessite une authentification et fourni en même temps `auth`.
 - Le serveur vérifie ensuite `auth` de son côté avec sa clé `key_communication` :
+
 $$
 auth' = MAC_{key\_communication}(username)
 $$
+
 $$
 auth' \stackrel{?}{=} auth
 $$
+
 - Le MAC est juste si :
+
 $$
 auth' = auth
 $$
+
 - Si le MAC est juste, cela veut dire que l'utilisateur démontre qu'il est bien en possession de la clé `key_communication` définie durant l'échange OPAQUE effectué pour le login. Cela veut dire qu'il s'est connecté de manière correcte. Le serveur accepte donc la requête demandée par le client.
 ## Protections mises en place contre :
 - **Adversaires Actifs** :   
