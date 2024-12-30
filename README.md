@@ -1,5 +1,6 @@
 # CAA-Project Ferrara Justin
 
+Le code et tous les autres fichiers sont disponibles sur ce repository Github : [https://github.com/JustinFerrara14/CAA-Project](https://github.com/JustinFerrara14/CAA-Project).
 ## Niveau de sécurité choisi
 Dans ce projet, j'ai choisi de partir sur un niveau de sécurité de 256 bits pour la cryptographie symétriques. J'ai ensuite utilisé [keylength.com](https://www.keylength.com/en/4/) avec les recommandations du NIST de 2020 pour dresser la liste suivante :
 - Taille de clés pour la cryptographie symétrique: 256 bits
@@ -98,6 +99,8 @@ L'implémentation a été effectuée en Rust et les principales librairies utili
 - `opaque_ke`  pour OPAQUE
 - `libsodium-sys-stable` pour les opérations cryptographiques
 - `inquire` pour réaliser le CLI
+
+Le code et tous les autres fichiers sont disponibles sur ce repository Github : [https://github.com/JustinFerrara14/CAA-Project](https://github.com/JustinFerrara14/CAA-Project).
 
 ## Création de compte
 - L'utilisateur renseigne un nom d'utilisateur et 2 mots de passe identiques.
@@ -342,13 +345,17 @@ $$
 
 - Le serveur vérifie si auth est juste, si c'est le cas, il renvoie tous les messages au destinataire de la manière suivante:
 	- Si le timestamp du message est dans le passé alors le serveur envoie :
+
 $$
 sender, receiver, timestamp, nonceFilename, cipherFilename, nonceFile, cipherFile, timePuzzle
 $$
-	- Si le timestamp est dans le futur, le serveur envoie tout mais met `nonceFile` à 0:
+
+	- Si le timestamp est dans le futur, le serveur envoie tout mais met `nonceFile` à 0 :
+
 $$
 sender, receiver, timestamp, nonceFilename, cipherFilename, 0, cipherFile, timePuzzle
 $$
+
 > Dans le cas où le client a le droit de déchiffrer le message et que donc il est en possession du nonceFile, le serveur renvoie quand même un timePuzzle qui ne sert à rien. C'est pour simplifier l'implémentation.
 
 - Le client reçoit les messages du serveur. Pour chaque message, le client fait les opérations suivantes :
