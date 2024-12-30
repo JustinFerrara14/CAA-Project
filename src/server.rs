@@ -14,6 +14,11 @@ use std::error::Error;
 use std::{io, result};
 use argon2::Argon2;
 
+///
+/// Use TLS 1.3 to communicate with the client
+/// Not implemented in this code
+///
+
 #[allow(dead_code)]
 pub struct DefaultCipherSuite;
 impl CipherSuite for DefaultCipherSuite {
@@ -238,6 +243,7 @@ impl Server {
                 let puzzle3 = lhtlp.generate(secret3);
 
 
+                /// Uncomment to check the time needed to solve 1 puzzle
                 // check the time needed
                 // println!("Time needed to take in seconds: {:?}", time);
                 //

@@ -333,14 +333,15 @@ $$
 auth' = auth
 $$
 - Si le MAC est juste, cela veut dire que l'utilisateur démontre qu'il est bien en possession de la clé `key_communication` définie durant l'échange OPAQUE effectué pour le login. Cela veut dire qu'il s'est connecté de manière correcte. Le serveur accepte donc la requête demandée par le client.
-## Types d'adversaires ???
+## Protections mises en place contre :
 - **Adversaires Actifs** :   
-  - **Signatures Numériques** : Les messages sont signés avec les clés privées des utilisateurs, empêchant ainsi la répudiation et garantissant l'authenticité des messages. 
-  - **Utilisation de TLS 1.3** : Toutes les communications entre le client et le serveur sont sécurisées avec TLS 1.3, protégeant les données en transit contre les interceptions et les modifications.  
+  - **Signatures Numériques** : Les messages sont signés avec les clés privées des clients, empêchant ainsi la répudiation et garantissant l'authenticité des messages. 
+  - **Utilisation de TLS 1.3** : Toutes les communications entre le client et le serveur sont sécurisées avec TLS 1.3, protégeant les données en transit contre les interceptions et les modifications.
+  - **Utilisation de OPAQUE** : Permet d'éviter les attaques à sel connu et d'authentifier les action qu'il effectue auprès du serveur. Permettant ainsi d'authoriser uniquement les utilisateurs connectés à envoyer des messages par exemple.
 - **Serveur Honnête mais Curieux** :   
-  -  **Chiffrement de Bout en Bout** : Les messages sont chiffrés de bout en bout avec en utilisant du chiffrement hybride. Ce qui empêche le serveur d'en lire le contenu.
-  - **Stockage Sécurisé des Clés** : Les clés privées des utilisateurs sont stockées chiffrées sur le serveur, empêchant l'accès non autorisé même en cas de compromission du serveur.
-  - **Échange de clés authentifié** : L'utilisation de OPAQUE permet d'authentifier les utilisateurs, sans sortir le sel du serveur ce qui permet de ne pas avoir d'attaque à sel connu. Cela permet également de dériver une clé secrète côté client, et un clé symétrique partagée avec le serveur pour authentifié les requêtes suivantes provenant du client.
+  -  **Chiffrement de Bout en Bout** : Les messages sont chiffrés de bout en bout  en utilisant du chiffrement hybride. Ce qui empêche le serveur d'en lire le contenu.
+  - **Stockage Sécurisé des Clés** : Les clés privées des utilisateurs sont stockées chiffrées sur le serveur, empêchant leur utilisation non autorisée, même en cas de compromission du serveur.
+  - **Échange de clés authentifié** : L'utilisation de OPAQUE permet d'authentifier les utilisateurs, sans sortir le sel du serveur et sans transmettre le hash au serveur. Cela permet d'éviter les attaques à sel connu.
 
 ## Bonus
 ### OPAQUE
@@ -353,16 +354,16 @@ OPAQUE est utilisé ici pour divers aspects:
 ### Time lock puzzle ???
 Pour permettre de déchiffrer un message au client, sans accès au serveur après l'avoir téléchargé avant la date d'ouverture, j'ai utilisé un time lock puzzle.
 
-Le time lock puzzle permet de trouver le nonceFile de manière complétement offline et ainsi de déchiffrer le fichier. Comme notre nonce fait 24 bytes et que la librairie utilisé permet de faire des time lock puzzle sur des entiers de 8 bytes, on doit faire 3 time lock puzzle.
+Le time lock puzzle permet de trouver le nonceFile de manière complétement offline et ainsi de déchiffrer le fichier. Comme notre nonce fait 24 bytes et que la librairie utilisé permet de faire des time lock puzzle sur des entiers de 8 bytes, j'ai fait 3 time lock puzzle.
 
 Un seul time lock puzzle doit prendre le temps nécessaire jusqu'à la date de libération du fichier. Comme on en a 3, il faut les résoudre en parallèle sur la machine cliente.
 
-> Note: Il est très important de noter qu'il faut résoudre les 3 puzzle en parallèle et non en série. En effet, si on les résous en série, une implémentation malveillant du client qui les résoudrais en parallèle permettrait de résoudre le puzzle 3 fois plus vite.
+> Note: Il est très important de noter qu'il faut résoudre les 3 puzzle en parallèle et non en série. En effet, si on les résous en série, une implémentation malveillant du client qui les résoudrais en parallèle permettrait de résoudre les time lock puzzle 3 fois plus vite.
 #### Paramètres
 - Le lambda choisi dans mon cas est 256. Car c'est le niveau de sécurité choisi pour les clés symétriques.
 - Le `TIME_HARDNESS` a été mis à 340'000, ce qui correspond à un temps de 1 secondes pour résoudre le puzzle avec un lambda de 256 sur ma machine.
 #### Points à prendre en compte
-- Trouver nonceFile à partir du time lock puzzle est une opération qui doit se faire sans s'arrêter et qui donc peut paralyser la machine client
-- Trouver nonceFile à partir du time lock puzzle est une opération qui prend beaucoup de ressources machines.
+- Trouver le nonceFile à partir du time lock puzzle est une opération qui doit se faire sans s'arrêter et qui peut donc paralyser la machine client
+- Trouver le nonceFile à partir du time lock puzzle est une opération qui prend beaucoup de ressources machines.
 - La vitesse pour trouver nonceFile dépend de la puissance de calcul de la machine cliente. On peut avoir des différence significative entre la meilleure machine du marché et la pire. C'est pourquoi  `TIME_HARDNESS` doit être choisi de manière correcte pour correspondre au client qui résoudra le time lock puzzle. Dans ce cas, comme les messages sont envoyé et reçu sur la même machine, le  `TIME_HARDNESS` reste le même partout.
 - La génération du time lock puzzle côté serveur peu prendre un peu de temps. C'est pourquoi il y a un petit délai quand on veut recevoir les messages, cela correspond en temps que prend le serveur à générer un time lock puzzle différent pour chaque message qui n'on pas encore le droit d'être ouvert.

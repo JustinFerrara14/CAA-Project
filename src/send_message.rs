@@ -8,6 +8,11 @@ use crate::server::Server;
 use crate::user_connected::UserConnected;
 use crate::consts::*;
 
+///
+/// Use TLS 1.3 to communicate with the client
+/// Not implemented in this code
+///
+
 
 fn get_recipient_pub_key(srv: &Server, usr: &UserConnected) -> Result<(String, [u8; ENC_KEY_LEN_PUB]), Box<dyn std::error::Error>> {
     loop {

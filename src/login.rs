@@ -12,6 +12,11 @@ use crate::consts::*;
 use opaque_ke::*;
 use rand::rngs::OsRng;
 
+///
+/// Use TLS 1.3 to communicate with the client
+/// Not implemented in this code
+///
+
 fn calculate_mac(username: &str, key_communication: Vec<u8>) -> Result<[u8; MAC_LEN], Box<dyn std::error::Error>> {
     let mut mac = [0u8; MAC_LEN];
 

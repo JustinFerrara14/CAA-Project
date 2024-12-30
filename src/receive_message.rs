@@ -14,6 +14,11 @@ use crate::user_connected::UserConnected;
 use crate::consts::*;
 use crate::database::Message;
 
+///
+/// Use TLS 1.3 to communicate with the client
+/// Not implemented in this code
+///
+
 fn decrypt_filename(m: &Message, pub_enc_key_sender: &[u8; ENC_KEY_LEN_PUB], priv_enc_key_receiver: &[u8; ENC_KEY_LEN_PRIV]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let mut decrypted_filename = vec![0u8; m.filename.len() - ENC_LEN_MAC];
 
